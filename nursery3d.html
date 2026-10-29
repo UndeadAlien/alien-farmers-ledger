@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090f">
+<meta name="robots" content="noindex">
+<title>Nursery in 3D · Alien Farmers</title>
+<meta name="description" content="One of Alien Farmers' nurseries in 3D: fly over the lot, walk it, and (for the owner) lay it out in Build mode or square the nursery with the aligner.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<!-- v63 nurseries: the Ledger's 3D tour, Build mode and the Nursery Aligner live on this page (moved out of index.html so the
+     main app doesn't load them). Opened from a nursery card: nursery3d.html?shop=<shop id> or ?prop=<property id>.
+     It reads the same browser storage as the Ledger (IndexedDB "af-ledger" + localStorage), else the public copy. -->
+<style>
+:root{
+  --bg:#07090f; --surface:#0d131d; --raised:#131b28; --sunk:#0a0f17; --line:#1b2534; --line-2:#2a3850; --rule:#1b2534;
+  --ink:#e9eef5; --muted:#8c9bb1; --dim:#5f6e84;
+  --leaf-rgb:94,227,143; --leaf:#5ee38f; --leaf-ink:#04210f; --leaf-soft:rgba(var(--leaf-rgb),.12); --leaf-line:rgba(var(--leaf-rgb),.4);
+  --daisy:#f6b552; --daisy-soft:rgba(246,181,82,.13); --hot:#ff8466; --sky:#7cc4ff; --good:#5ee38f; --bad:#ff7070;
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{background:#0b1424;color:var(--ink);font:15px/1.5 var(--body);overflow:hidden}
+a{color:var(--leaf)}
+h2,h3{font-family:var(--display);margin:0}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+input,select{font:14px var(--body);color:var(--ink);background:var(--sunk);border:1px solid var(--line-2);border-radius:10px;padding:8px 11px;min-width:0}
+button{font:600 14px var(--body);border-radius:10px;cursor:pointer;color:var(--ink)}
+button.primary{display:inline-flex;align-items:center;gap:7px;background:var(--leaf);color:var(--leaf-ink);border:0;padding:7px 14px;font-size:13px;border-radius:8px}
+button.primary:disabled{opacity:.5;cursor:default}
+button.ghost,a.ghost{background:var(--raised);border:1px solid var(--line-2);padding:6px 12px;font-size:13px;border-radius:8px;color:var(--ink);font-weight:500;text-decoration:none}
+button.ghost:hover{border-color:var(--leaf-line)}
+label{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+label.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);font-weight:500;cursor:pointer}
+label.chk input{width:15px;height:15px;accent-color:var(--leaf);padding:0}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--sunk);padding:2px;gap:2px}
+.seg button{border:0;border-radius:6px;background:none;padding:4px 10px;font-size:12.5px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2);font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.note{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.lot-shape{width:44px;height:44px}.lot-shape polygon{fill:rgba(94,227,143,.18);stroke:#5ee38f;stroke-width:1.5}
+/* a small sheet (Share this build) */
+.sheet{position:fixed;inset:0;z-index:95}
+.sheet-back{position:absolute;inset:0;background:rgba(2,4,8,.66);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.sheet-panel{position:absolute;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--bg);border-left:1px solid var(--line-2);overflow-y:auto;padding:0 20px calc(28px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;align-content:start;overscroll-behavior:contain}
+.sheet-head{position:sticky;top:0;z-index:4;margin:0 -20px;padding:16px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;background:rgba(7,9,15,.94);border-bottom:1px solid var(--line)}
+.sheet-head h2{font-size:18px;font-weight:700}
+.sheet-sub{margin-top:4px;font-size:13px;color:var(--muted)}
+.sheet-btns{display:flex;flex-wrap:wrap;gap:8px}
+.share-link{display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap}
+.share-link input{flex:1 1 220px;min-width:0;font:13px ui-monospace,monospace}
+.linkbtn{background:none;border:0;padding:0;color:var(--leaf);font:inherit;text-decoration:underline;cursor:pointer}
+.linkbtn:disabled{color:inherit;text-decoration:none;cursor:default}
+button.ghost.tiny,a.ghost.tiny{padding:3px 9px;border-radius:8px;font-size:12px}
+.pub-view #tourBuild,.pub-view #tmAlign{display:none!important}
+/* the page is the tour: no fade in, no close-to-reveal */
+.tour{opacity:1}
+.tour-x{text-decoration:none}
+/* ===== moved from index.html (v51 tour, v54 Build mode, v52 controls menu; the aligner moved to aligner.html in v66) ===== */
+.tour{position:fixed;inset:0;z-index:80;background:#0b1424;opacity:0;transition:opacity .25s;overscroll-behavior:contain;touch-action:none}
+.tour.on{opacity:1}
+.tour canvas{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.tour-top{position:absolute;z-index:3;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 26px;background:linear-gradient(180deg,rgba(5,8,14,.78),rgba(5,8,14,0));pointer-events:none}
+.tour-top>*{pointer-events:auto}
+.tbtn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 13px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(10,15,24,.66);color:#fff;font:600 13px var(--body);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);cursor:pointer;white-space:nowrap}
+.tbtn:hover{border-color:rgba(94,227,143,.6)}.tbtn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tbtn.icon{width:38px;padding:0;justify-content:center}
+.tbtn.go{background:#5ee38f;color:#04210f;border-color:#5ee38f}.tbtn.go svg{stroke:#04210f}
+.tour-ttl{display:grid;min-width:0;flex:1}
+.tour-ttl b{font:800 18px/1.15 var(--display);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.tour-ttl span{font-size:12.5px;color:#c9d4e2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tour-seg{display:inline-flex;padding:3px;border-radius:12px;background:rgba(10,15,24,.66);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.tour-seg button{height:30px;padding:0 12px;border:0;border-radius:9px;background:none;color:#c9d4e2;font:600 13px var(--body)}
+.tour-seg button[aria-pressed="true"]{background:#fff;color:#0b1424}
+.tour-bot{position:absolute;z-index:3;left:0;right:0;bottom:0;display:grid;gap:10px;padding:30px 14px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(5,8,14,.8),rgba(5,8,14,0));pointer-events:none}
+.tour-bot>*{pointer-events:auto}
+.tour-cap{justify-self:start;max-width:min(440px,100%);display:grid;gap:2px;padding:11px 14px;border-radius:14px;background:rgba(10,15,24,.72);border:1px solid rgba(255,255,255,.12);border-left:3px solid #5ee38f;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);animation:capIn .35s ease}
+@keyframes capIn{from{opacity:0;transform:translateY(8px)}}
+.tour-cap em{font:700 10.5px var(--mono);font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#5ee38f}
+.tour-cap b{font:800 17px/1.2 var(--display);color:#fff}.tour-cap span{font-size:12.5px;color:#c9d4e2}
+.tour-stops{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.tour-stops::-webkit-scrollbar{display:none}
+.tour-stops button{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(10,15,24,.66);color:#e6edf6;font:600 12.5px var(--body);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.tour-stops button i{width:8px;height:8px;border-radius:50%;background:var(--kc,#8c9bb1)}
+.tour-stops button em{font:700 11px var(--mono);font-style:normal;color:#8c9bb1}
+.tour-stops button.on{background:#fff;color:#0b1424;border-color:#fff}.tour-stops button.on em{color:#5f6e84}
+.tour-help{font-size:12px;color:#aab6c6;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.tour-pad{position:absolute;z-index:4;left:22px;bottom:calc(118px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;background:rgba(10,15,24,.45);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:none}
+.tour-pad i{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(94,227,143,.85);box-shadow:0 0 18px rgba(94,227,143,.6)}
+.tour-run{position:absolute;z-index:4;left:156px;bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+.tour-load{position:absolute;z-index:5;inset:0;display:grid;place-items:center;align-content:center;gap:14px;background:radial-gradient(circle at 50% 45%,rgba(18,40,32,.85),rgba(7,10,16,.96));transition:opacity .4s}
+.tour-load.done{opacity:0;pointer-events:none}
+.tour-ring{position:relative;width:132px;height:132px}.tour-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.tour-ring circle{fill:none;stroke-width:8}.tour-ring .bg{stroke:rgba(94,227,143,.14)}.tour-ring .fg{stroke:#5ee38f;stroke-linecap:round;transition:stroke-dashoffset .3s;filter:drop-shadow(0 0 6px rgba(94,227,143,.7))}
+.tour-ring b{position:absolute;inset:0;display:grid;place-items:center;font:700 24px var(--mono);color:#fff}
+.tour-load span{font-size:13px;color:#c9d4e2;text-align:center;max-width:320px}
+.tour-load h3{margin:0;font:800 20px var(--display);color:#fff}
+.tour-err{position:absolute;z-index:6;inset:0;display:grid;place-items:center;padding:20px;background:rgba(7,10,16,.92)}
+.tour-err>div{max-width:440px;display:grid;gap:10px;text-align:center;padding:22px;border-radius:18px;background:var(--surface);border:1px solid var(--line-2)}
+.tour-err b{font:800 18px var(--display)}.tour-err p{margin:0;color:var(--muted);font-size:13.5px}
+@media (max-width:700px){.tour-top{flex-wrap:wrap}.tour-ttl{order:1;flex-basis:calc(100% - 52px)}.tour-x{order:0}.tour-btns{order:2;width:100%;display:flex;gap:6px}.tour-btns .tbtn .lbl{display:none}.tour-pad{bottom:calc(128px + env(safe-area-inset-bottom,0px))}}
+@media (prefers-reduced-motion:reduce){.ns-ph.making .lot-shape,.tour-cap{animation:none}}
+
+/* v54: Build mode */
+#tourBuild[aria-pressed=true]{background:#5ee38f;color:#04210f;border-color:#5ee38f}
+#tour.building .tour-stops,#tour.building .tour-cap,#tour.building .tour-help,#tour.building .tour-zoom,#tour.building #tourPlay{display:none!important}
+.bld{position:absolute;inset:0;z-index:4;pointer-events:none}
+.bld>*{pointer-events:auto}
+.bld-lib,.bld-insp,.bld-list{position:absolute;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:16px;background:rgba(10,15,24,.9);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#e6edf6;box-shadow:0 24px 50px -20px rgba(0,0,0,.9)}
+.bld-lib{left:14px;top:calc(66px + env(safe-area-inset-top,0px));bottom:76px;width:310px}
+.bld-insp{right:14px;top:calc(66px + env(safe-area-inset-top,0px));width:300px;max-height:calc(100vh - 160px);overflow:auto}
+.bld-list{right:14px;bottom:76px;width:360px;max-height:46vh;overflow:auto}
+.bld-insp:has(#bldInsp:empty){display:none}
+.bl-h{display:flex;align-items:center;gap:8px}.bl-h b{font:700 15px var(--display)}.bl-h .muted{font-size:12px;margin-left:auto}.bld-x{display:none!important}
+.bld-src,.bld-grp{display:flex;flex-wrap:wrap;gap:5px}
+.bld-src button,.bld-grp button{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#c9d4e2;border-radius:999px;padding:3px 9px;font:600 12px var(--body)}
+.bld-src button em{font-style:normal;color:#8c9bb1;margin-left:4px;font:600 10.5px var(--mono)}
+.bld-src button[aria-pressed=true],.bld-grp button[aria-pressed=true]{background:#5ee38f;color:#04210f;border-color:#5ee38f}.bld-src button[aria-pressed=true] em{color:#04210f}
+.bld-search{width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:7px 10px}
+.bld-grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;align-content:start;min-height:0}
+.bld-tile{display:grid;gap:2px;text-align:left;padding:6px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#e6edf6;cursor:pointer;font:inherit;min-width:0}
+.bld-tile:hover{border-color:rgba(94,227,143,.6)}.bld-tile.on{border-color:#5ee38f;box-shadow:0 0 0 1px #5ee38f inset;background:rgba(94,227,143,.1)}
+.bt-img{display:grid;place-items:center;aspect-ratio:1/1;border-radius:9px;background:radial-gradient(circle at 50% 60%,#2a3c4f,#141c28);overflow:hidden}.bt-img img{width:100%;height:100%;object-fit:contain}
+.bt-ph{width:34%;aspect-ratio:1/1;border-radius:6px;border:2px dashed rgba(255,255,255,.18)}
+.bld-tile b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bt-meta{font-size:10.5px;color:#8c9bb1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bld-foot{display:grid;gap:6px;font-size:12px}.bld-row{display:flex;gap:6px}.bld-row .tbtn{flex:1;justify-content:center;height:32px;font-size:12px;padding:0 8px}
+.bi-h{display:flex;gap:10px;align-items:center}.bi-h img{width:52px;height:52px;border-radius:10px;background:#141c28;object-fit:contain}.bi-h b{display:block;font:700 15px var(--display)}.bi-h span{font-size:12px;color:#8c9bb1}
+.bi-lab{display:flex;justify-content:space-between;font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#8c9bb1;margin-top:4px}.bi-lab b{color:#fff;letter-spacing:0}
+#bldInsp input[type=range]{width:100%;accent-color:#5ee38f}
+.bi-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.bi-row .tbtn{height:30px;padding:0 9px;font-size:12px}.bi-rep .muted{font-size:11.5px}
+.tbtn.bad{color:#ff8a8a;border-color:rgba(255,107,107,.4)}
+.bi-warn,.bi-ok{margin:0;font-size:12.5px}.bi-pos{margin:0;font-size:12px}
+.bld-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;padding:7px;border-radius:14px;background:rgba(10,15,24,.9);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);max-width:calc(100vw - 28px);overflow-x:auto}
+.bld-bar .tbtn{height:34px;padding:0 10px;font-size:12.5px}.bld-bar .tbtn[aria-pressed=true]:not(.go){background:#fff;color:#0b1424}.bld-bar .tbtn.icon{width:34px;padding:0}
+.bld-bar .tbtn:disabled{opacity:.4}
+.bld-sel{background:rgba(0,0,0,.35);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:10px;height:34px;max-width:150px}
+.bld-count{font-size:12px;white-space:nowrap;padding:0 4px}.bld-ph{display:none!important}
+.bl-step{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;align-items:start;padding:8px 6px;border-top:1px solid rgba(255,255,255,.08);cursor:pointer}
+.bl-step:hover{background:rgba(255,255,255,.04)}.bl-step.done{opacity:.5}.bl-step>b{font-size:14px;min-width:20px;text-align:right}
+.bl-step small{display:block;font-size:12px;color:#aab6c6}.bl-step input{accent-color:#5ee38f;width:16px;height:16px}
+.bl-k{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:999px;text-transform:uppercase;letter-spacing:.06em;background:#5ee38f;color:#04210f}.bl-k.move{background:#f6b552;color:#2b1700}.bl-k.pick{background:#ff8a8a;color:#2b0505}
+#bldNeed{margin:0;font-size:12.5px}
+@media (max-width:900px){
+  .bld-lib,.bld-insp{left:0;right:0;top:auto;bottom:calc(58px + env(safe-area-inset-bottom,0px));width:auto;max-height:62vh;border-radius:18px 18px 0 0;padding-bottom:12px;display:none}
+  .bld-lib{height:62vh}
+  .bld.sh-lib .bld-lib,.bld.sh-insp .bld-insp{display:flex}
+  .bld-x{display:inline-flex!important;margin-left:auto}
+  .bld-list{left:10px;right:10px;width:auto;bottom:70px;max-height:50vh}
+  .bld-ph{display:inline-flex!important}
+  .bld-bar{left:10px;right:10px;transform:none;max-width:none}
+  .bld-bar #bldRename,.bld-bar #bldDelete,.bld-bar #bldCopy,.bld-count{display:none}
+}
+
+/* v52: tour controls menu, zoom buttons, aligner */
+.tour-zoom{position:absolute;z-index:3;right:14px;top:50%;transform:translateY(-50%);display:grid;gap:6px}
+.tour-menu{position:absolute;z-index:6;right:14px;top:calc(62px + env(safe-area-inset-top,0px));width:min(340px,calc(100vw - 28px));max-height:calc(100vh - 140px);overflow:auto;display:grid;gap:12px;padding:14px;border-radius:16px;background:rgba(10,15,24,.92);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 30px 60px -20px rgba(0,0,0,.9);color:#e6edf6}
+.tour-menu h4{margin:0;font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#8c9bb1}
+.tour-menu .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tour-menu .tbtn{height:34px}
+.tour-menu .tour-seg{width:100%}.tour-menu .tour-seg button{flex:1}
+.tour-menu label.sw{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;padding:2px 0;cursor:pointer}
+.tour-menu input[type=range]{width:100%;accent-color:#5ee38f}
+.tour-menu .keys{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px;color:#aab6c6}.tour-menu .keys b{font:600 11.5px var(--mono);color:#fff;white-space:nowrap}
+.tour-toast{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);padding:8px 14px;border-radius:999px;background:rgba(10,15,24,.8);color:#fff;font:600 13px var(--mono);pointer-events:none;transition:opacity .3s}
+@media (max-width:700px){.tour-menu{left:0;right:0;top:auto;bottom:0;width:auto;max-height:72vh;border-radius:18px 18px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}.tour-zoom{top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:none}}
+/* v66: the aligner is its own page now (aligner.html); its overlay CSS is gone */
+
+</style>
+</head>
+<body>
+<div class="tour on" id="tour" role="main" aria-labelledby="tourT">
+  <canvas id="tourCv" tabindex="0"></canvas>
+  <div class="tour-top">
+    <a class="tbtn icon tour-x" href="./?view=nurseries" id="tourX" title="Back to the Ledger" aria-label="Back to the Ledger"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+    <div class="tour-ttl"><b id="tourT">Nursery</b><span id="tourS"></span></div>
+    <div class="tour-btns" style="display:flex;gap:8px">
+      <div class="tour-seg" id="tourMode"><button type="button" data-tm="orbit" aria-pressed="true">Map</button><button type="button" data-tm="walk" aria-pressed="false">Walk</button></div>
+      <button class="tbtn" type="button" id="tourBuild" aria-pressed="false" title="Build mode: lay out the lot"><svg viewBox="0 0 24 24"><path d="M14.5 5.5l4 4L9 19H5v-4z"/><path d="M12.5 7.5l4 4"/></svg><span class="lbl">Build</span></button>
+      <button class="tbtn go" type="button" id="tourPlay"><svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span class="lbl">Tour</span></button>
+      <button class="tbtn" type="button" id="tourShot" title="Save a picture"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span class="lbl">Picture</span></button>
+      <button class="tbtn" type="button" id="tourMenuBtn" title="Controls" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="lbl">Controls</span></button>
+    </div>
+  </div>
+  <div class="tour-zoom" id="tourZoom">
+    <button class="tbtn icon" type="button" data-tz="in" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="tbtn icon" type="button" data-tz="out" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="tbtn icon" type="button" data-tz="reset" title="Back to the whole lot" aria-label="Back to the whole lot"><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6"/><path d="M6 10v9h12v-9"/></svg></button>
+  </div>
+  <div class="tour-menu" id="tourMenu" hidden>
+    <h4>View</h4>
+    <div class="tour-seg" id="tmMode"><button type="button" data-tm="orbit" aria-pressed="true">Map</button><button type="button" data-tm="walk" aria-pressed="false">Walk</button></div>
+    <div id="tmOrbit" style="display:grid;gap:12px">
+      <h4>Dragging with one finger / left mouse</h4>
+      <div class="tour-seg" id="tmDrag"><button type="button" data-td="map" aria-pressed="true">Moves the map</button><button type="button" data-td="orbit" aria-pressed="false">Turns around</button></div>
+      <div class="row"><button class="tbtn" type="button" data-tn="zoom:1">Zoom in</button><button class="tbtn" type="button" data-tn="zoom:-1">Zoom out</button><button class="tbtn" type="button" data-tn="turn:-1">⟲ Turn</button><button class="tbtn" type="button" data-tn="turn:1">⟳ Turn</button><button class="tbtn" type="button" data-tn="tilt:1">Tilt up</button><button class="tbtn" type="button" data-tn="tilt:-1">Tilt down</button></div>
+    </div>
+    <h4>Speed <span id="tmSpeedV" style="color:#fff;text-transform:none;letter-spacing:0"></span></h4>
+    <input type="range" id="tmSpeed" min="1" max="30" step="0.5" value="4.5" aria-label="Walking speed">
+    <h4>Show</h4>
+    <label class="sw">Signs and pins<input type="checkbox" id="tmLabels" checked></label>
+    <label class="sw">Shadows<input type="checkbox" id="tmShadows" checked></label>
+    <label class="sw">Neighbours' buildings<input type="checkbox" id="tmNb"></label>
+    <label class="sw">Lighter (faster on phones)<input type="checkbox" id="tmLight"></label>
+    <button class="tbtn go" type="button" id="tmAlign" style="justify-content:center"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Place the nursery (aligner)</button>
+    <div id="tmKeys"><h4 style="margin-bottom:6px">Keys</h4><div class="keys"><b>W A S D / arrows</b><span>move</span><b>Q / E</b><span>turn</span><b>R / F, + / −</b><span>zoom in / out</span><b>Shift</b><span>faster</span><b>Ctrl or Alt</b><span>slower</span><b>Scroll (walking)</b><span>change speed</span><b>Double-click</b><span>glide to that spot</span><b>Right-drag</b><span>turn (or move, if dragging turns)</span><b>Esc</b><span>close</span></div></div>
+  </div>
+  <div class="tour-toast" id="tourToast" style="opacity:0"></div>
+  <div class="bld" id="bld" hidden>
+    <aside class="bld-lib" id="bldLib">
+      <div class="bl-h"><b>Library</b><span class="muted" id="bldLibN"></span><button class="tbtn icon bld-x" type="button" data-bsheet="" aria-label="Close">✕</button></div>
+      <div class="bld-src" id="bldSrc"><button type="button" data-src="all">All<em></em></button><button type="button" data-src="lot">This lot<em></em></button><button type="button" data-src="mine">My lots<em></em></button><button type="button" data-src="map">Seen around<em></em></button><button type="button" data-src="seeds">Seeds<em></em></button></div>
+      <input id="bldSearch" class="bld-search" type="search" placeholder="Search the library" autocomplete="off" spellcheck="false">
+      <div class="bld-grp" id="bldGrp"><button type="button" data-grp="flat">Paths</button><button type="button" data-grp="decor">Decor</button><button type="button" data-grp="plants">Plants</button><button type="button" data-grp="vehicles">Vehicles</button><button type="button" data-grp="buildings">Buildings</button></div>
+      <div class="bld-grid" id="bldGrid"></div>
+      <div class="bld-foot"><span class="muted" id="bldLibMsg"></span>
+        <div class="bld-row"><button class="tbtn" type="button" id="bldMine">Collect from my lots</button><button class="tbtn" type="button" id="bldAround">Look around this lot</button></div></div>
+    </aside>
+    <aside class="bld-insp" id="bldInspP"><div class="bl-h"><b>Selected</b><button class="tbtn icon bld-x" type="button" data-bsheet="" aria-label="Close">✕</button></div><div id="bldInsp"></div></aside>
+    <section class="bld-list" id="bldListP" hidden><div class="bl-h"><b>Build list</b><span class="muted">do these in Upland, in order</span></div><div class="note" id="bldNeed"></div><div id="bldListBody"></div></section>
+    <div class="bld-bar">
+      <button class="tbtn bld-ph" type="button" data-bsheet="lib">Library</button><button class="tbtn bld-ph" type="button" data-bsheet="insp">Item</button>
+      <select id="bldDesign" class="bld-sel" aria-label="Design"></select>
+      <button class="tbtn" type="button" id="bldNew" title="New design">New</button><button class="tbtn" type="button" id="bldCopy" title="Copy this design">Copy</button><button class="tbtn" type="button" id="bldRename">Rename</button><button class="tbtn" type="button" id="bldDelete">Delete</button>
+      <span class="muted bld-count" id="bldCount"></span>
+      <button class="tbtn icon" type="button" id="bldUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button><button class="tbtn icon" type="button" id="bldRedo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></svg></button>
+      <button class="tbtn" type="button" id="bldSnap" aria-pressed="true" title="Snap to things around it (hold Alt to place freely)">Snap</button>
+      <button class="tbtn" type="button" id="bldPlan" aria-pressed="false">Top view</button>
+      <button class="tbtn" type="button" id="bldSheet" title="Save a picture: top-down plan, numbered build list and what you'll need">Picture</button><button class="tbtn" type="button" id="bldShare" title="Make a read-only Alien Farmers link to this build">Share</button>
+      <button class="tbtn go" type="button" id="bldListBtn" aria-pressed="false">Build list</button>
+    </div>
+  </div>
+  <div class="tour-pad" id="tourPad" hidden><i></i></div>
+  <button class="tbtn tour-run" type="button" id="tourRun" hidden aria-pressed="false">Run</button>
+  <div class="tour-bot">
+    <div class="tour-cap" id="tourCap" hidden><em id="tourCapK"></em><b id="tourCapN"></b><span id="tourCapS"></span></div>
+    <div class="tour-stops" id="tourStops"></div>
+    <div class="tour-help" id="tourHelp"></div>
+  </div>
+  <div class="tour-load" id="tourLoad"><h3 id="tourLoadT">Landing…</h3><div class="tour-ring"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" id="tourRing" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg><b id="tourPct">0%</b></div><span id="tourLoadL">Reading the lot from Upland</span></div>
+  <div class="tour-err" id="tourErr" hidden><div><b id="tourErrT"></b><p id="tourErrP"></p><div class="sheet-btns" style="justify-content:center" id="tourErrB"></div></div></div>
+</div>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-back" data-close></div>
+  <aside class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head"><div><h2 id="sheetTitle"></h2><div class="sheet-sub" id="sheetSub"></div></div><button class="ghost" type="button" data-close aria-label="Close">✕</button></div>
+    <div id="sheetBody" style="display:grid;gap:12px"></div>
+  </aside>
+</div>
+<script type="module">
+// ---------- Nursery in 3D (v63 nurseries): the tour, Build mode and the aligner, moved out of the Ledger's index.html ----------
+const $ = id => document.getElementById(id);
+const DAY = 864e5;
+const SITE_CFG = {helper: "https://af-alerts.alienfarmers.workers.dev", account: "tft3ppexncet", user: "undeadalien"};
+const ST_BASE = "https://static.upland.me/", UPAPI = "https://api.prod.upland.me";
+const MODEL_VER = "46";   // keep in step with index.html's MODEL_VER
+const PHASES = {"begonia-rex":4,"bird-of-paradise":4,"lavender":4,"oil-palm":5,"orange-daisy":4,"petunia":4,"pink-rose":4,"purple-tulip":4,
+  "red-rose":4,"red-tulip":4,"violets":4,"white-rose":4,"white-tulip":4,"yellow-rose":4};
+const SEED_GLBS = ["apple","arborvitae","avocado","begonia-rex","birch-tree","bird-of-paradise","blueberry","bougainvillea","boxwood","forsythia","lavender","lawn-grass","lemon","magnolia","maple","monstera","oil-palm","orange-calla","orange-daisy","petunia","pine-tree","pink-rose","purple-tulip","purple-white-calla","red-rose","red-tulip","violets","walnut","weeping-willow","white-calla","white-rose","white-tulip","yellow-calla","yellow-rose"];
+const INT_NF = new Intl.NumberFormat("en-US"), int = v => INT_NF.format(Math.round(v));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const lc = s => String(s || "").trim().toLowerCase();
+const slug = s => lc(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\b(Nw|Ne|Sw|Se)\b/g, x => x.toUpperCase());
+const shopTitle = nm => String(nm || "").replace(/^alien farmers\s*[-–·:]\s*/i, "").replace(/\s+by\s+alien farmers$/i, "").trim() || (nm ? String(nm) : "");
+const fmtDay = iso => { try { return new Date(iso).toLocaleDateString(undefined, {month: "short", day: "numeric"}); } catch { return ""; } };
+const coarse = () => matchMedia("(pointer: coarse)").matches;
+const webglOk = () => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; } };
+
+// ---- storage: the Ledger's own (IndexedDB "af-ledger" for big keys, localStorage for the rest) ----
+// Only the keys this page needs are read. A write to a big key goes to IndexedDB and is announced on the "af-store" channel,
+// so an open Ledger tab takes it (and publishes it with the public copy) without reloading.
+const BIGRX = /^af:(hist:|market$|tx$|snap|nurseries$|shopSnap$|gen$|rec$|names$|seedNames$|hashKind$|props|lots|bal$|lotShot$|lotMap$)/;
+const IDB = (() => {
+  let db = null;
+  const ready = Promise.race([new Promise(res => { try { const r = indexedDB.open("af-ledger", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch { res(null); } }),
+    new Promise(r => setTimeout(() => r(null), 3000))]).then(d => { db = d; });
+  const get = k => new Promise(res => { if (!db) return res(undefined); try { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); } catch { res(undefined); } });
+  const put = (k, v) => new Promise(res => { if (!db) return res(false); try { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => res(false); } catch { res(false); } });
+  return {ready, get, put, ok: () => !!db};
+})();
+const mem = new Map();
+let bc = null; try { bc = new BroadcastChannel("af-store"); } catch {}
+const store = {
+  get(k, d){ if (mem.has(k)) return mem.get(k); try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){
+    if (BIGRX.test(k) && IDB.ok()) { mem.set(k, v); IDB.put(k, v).then(() => { try { bc && bc.postMessage({k}); } catch {} }); return; }
+    mem.delete(k); try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+  }
+};
+const HP = store.get("af:helper", null), OWNER = !!(HP && HP.key), PV = !OWNER;
+if (PV) document.body.classList.add("pub-view");
+const PH = {h: OWNER ? {...HP, url: HP.url || SITE_CFG.helper} : null};
+const hasHelper = () => !!(PH.h && PH.h.url && PH.h.key);
+const helperCall = async (path, body) => {
+  const r = await fetch(PH.h.url.replace(/\/+$/, "") + "/" + path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: PH.h.key, ...body})} : {});
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "helper answered " + r.status); return j;
+};
+const NEED = ["af:shopSnap", "af:props", "af:lotMap", "af:lotShot"];
+async function loadStore(){
+  await IDB.ready;
+  for (const k of NEED) { const v = await IDB.get(k); if (v !== undefined) mem.set(k, v); }
+}
+// nothing saved on this device yet (a visitor's first visit, a new phone): the public copy the owner's Ledger publishes
+async function pubCopy(){
+  try {
+    const h = SITE_CFG.helper;
+    if (typeof DecompressionStream !== "undefined") { const r = await fetch(h + "/site/snap", {cache: "no-store"}); if (!r.ok) return null;
+      return JSON.parse(await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).text()); }
+    const r = await fetch(h + "/site/snap.json", {cache: "no-store"}); return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+// Upland's public property/map/shop pages: straight from the page, or through the helper when the browser blocks it
+const PUB = {blocked: false};
+async function upPublic(path){
+  if (!PUB.blocked && !/^\/metaventures\//.test(path)) {
+    let r = null; try { r = await fetch(UPAPI + path, {headers: {Accept: "application/json"}}); } catch { PUB.blocked = true; }
+    if (r) { if (r.ok) return r.json(); throw new Error("Upland answered " + r.status); }
+  }
+  const r = hasHelper() && !/^\/metaventures\//.test(path) ? await fetch(`${PH.h.url}/up?k=${encodeURIComponent(PH.h.key)}&path=${encodeURIComponent(path)}`)
+    : await fetch(`${SITE_CFG.helper}/pubup?path=${encodeURIComponent(path)}`).catch(() => { throw new Error("helper"); });
+  if (!r.ok) throw new Error(r.status === 404 ? "helper" : "helper " + r.status); return r.json();
+}
+
+// ---- which nursery: ?shop=<id> or ?prop=<property id>, from the saved nursery facts and lots ----
+const Q = new URLSearchParams(location.search), Q_SHOP = Q.get("shop"), Q_PROP = Q.get("prop");
+function findNursery(){
+  const snap = store.get("af:shopSnap", null), shops = (snap && snap.shops) || [], own = ((store.get("af:props", null) || {}).list) || [];
+  let sh = Q_SHOP ? shops.find(s => String(s.id) === String(Q_SHOP)) || null : Q_PROP ? shops.find(s => String(s.prop || "") === String(Q_PROP)) || null : null;
+  if (!sh && Q_SHOP) sh = {id: +Q_SHOP};
+  const prop = (sh && sh.prop) || Q_PROP || null, lot = prop ? own.find(x => String(x.id) === String(prop)) || null : null;
+  if (!sh && !prop) return null;
+  const lat = lot && lot.lat != null ? lot.lat : sh && sh.lat != null ? +sh.lat : null, lng = lot && lot.lng != null ? lot.lng : sh && sh.lng != null ? +sh.lng : null;
+  const seen = (store.get("af:nursSeen", {}) || {})[String(sh && sh.id)] || {};
+  const title = shopTitle(sh && (sh.name || seen.name)) || (lot && titleCase(lot.addr)) || (sh && sh.id ? "Shop " + sh.id : "Nursery");
+  const nb = lot && lot.nb, status = nb && nb.st && nb.st !== "completed" ? {cls: "build", txt: nb.pct != null ? `Building · ${Math.round(nb.pct * 100)}%` : "Being built", fin: nb.fin}
+    : sh && sh.name != null ? (sh.active === false ? {cls: "wait", txt: "Waiting for approval"} : {cls: "", txt: "Open"}) : {cls: "", txt: lot ? "Built" : ""};
+  return {key: prop || "shop" + sh.id, prop, shop: sh, lot, title, lat, lng, city: (lot && lot.city) || "", addr: lot && lot.addr && titleCase(lot.addr) !== title ? titleCase(lot.addr) : "", status};
+}
+// a shop or lot this device knows nothing about: read its public page for the place
+async function fillIn(n){
+  try {
+    if (n.shop && n.shop.id && (n.lat == null || n.shop.name == null)) {
+      const j = await upPublic("/metaventures/secondary-shop/" + n.shop.id);
+      if (j && typeof j === "object") { n.shop = {...n.shop, name: j.name || n.shop.name, active: !(j.isActive === false), prop: j.propertyId != null ? String(j.propertyId) : n.shop.prop};
+        if (!n.prop && n.shop.prop) { n.prop = n.shop.prop; n.key = n.prop; }
+        if (n.lat == null && j.lat != null) { n.lat = +j.lat; n.lng = +j.lng; }
+        if (/^Shop \d+$/.test(n.title) && j.name) n.title = shopTitle(j.name);
+        n.status = {cls: n.shop.active === false ? "wait" : "", txt: n.shop.active === false ? "Waiting for approval" : "Open"}; }
+    }
+    if (n.lat == null && n.prop) {
+      const d = await upPublic(`/api/properties/${n.prop}`);
+      if (d && d.centerlat != null) { n.lat = +d.centerlat; n.lng = +d.centerlng; n.addr = n.addr || titleCase(d.full_address || ""); n.city = n.city || (d.city && d.city.name) || ""; n.lot = n.lot || {area: +d.area || 0}; }
+    }
+  } catch {}
+  return n;
+}
+
+// ---- the lot and its neighbours from Upland's map (a small box around the nursery returns every lot with its models) ----
+const NS = {shots: {}, maps: {}, view: null, mod: null, cur: null, tok: null, st: {ok: false, blocked: store.get("af:stBlocked", false)}};
+const l3 = () => NS.mod || (NS.mod = import("./lot3d.js").catch(e => { NS.mod = null; throw e; }));
+async function lotMap(n, fresh){
+  const c = NS.maps[n.key];
+  if (c && !fresh && Date.now() - c.ms < DAY) return c.props;
+  if (n.lat == null) throw new Error("no location for this nursery yet");
+  const dy = .0007, dx = .0009 / Math.max(.3, Math.cos(n.lat * Math.PI / 180)), f = v => (+v).toFixed(7);
+  const j = await upPublic(`/api/map?north=${f(n.lat + dy)}&south=${f(n.lat - dy)}&east=${f(n.lng + dx)}&west=${f(n.lng - dx)}&marker=false`);
+  const props = Array.isArray(j) ? j : (j && j.properties) || [];
+  if (!props.length) { if (c) return c.props; throw new Error("Upland's map had nothing at this spot"); }
+  NS.maps = {...store.get("af:lotMap", {}), [n.key]: {ms: Date.now(), props}}; store.set("af:lotMap", NS.maps);
+  return props;
+}
+// can this page read Upland's 3D files? if the browser blocks them, the helper passes them through
+async function stAccess(url){
+  if (NS.st.ok) return true;
+  if (!NS.st.blocked) {
+    try { await fetch(url, {mode: "cors"}); NS.st.ok = true; return true; }
+    catch { if (navigator.onLine !== false) { NS.st.blocked = true; store.set("af:stBlocked", true); } }
+  }
+  if (PV) { const base = SITE_CFG.helper; (await l3()).setRewrite(u => u.startsWith(ST_BASE) ? `${base}/pub/${u.slice(ST_BASE.length)}` : u); NS.st.ok = true; return true; }
+  if (hasHelper()) { const base = PH.h.url.replace(/\/+$/, ""), key = encodeURIComponent(PH.h.key);
+    (await l3()).setRewrite(u => u.startsWith(ST_BASE) ? `${base}/st/${key}/${u.slice(ST_BASE.length)}` : u); NS.st.ok = true; return true; }
+  return false;
+}
+const firstModel = (mod, props, n) => { const me = n.prop && props.find(p => String(p.prop_id) === String(n.prop)); const all = [...((me && me.models) || []), ...props.flatMap(p => p.models || [])];
+  for (const m of all) { const L = mod.lodOf(m, "hi"); if (L && L.url) return L.url; } return null; };
+
+// ---- the tour ----
+const KCOL = {overview: "#ffffff", nursery: "#5ee38f", building: "#62dcff", totem: "#d9bcff", plant: "#9cff70", car: "#f6b552"};
+function tourLoading(f, line, title){
+  $("tourLoad").classList.toggle("done", f >= 1 && line === null);
+  $("tourRing").style.strokeDashoffset = (326.7 * (1 - Math.max(0, Math.min(1, f)))).toFixed(1);
+  $("tourPct").textContent = Math.round(f * 100) + "%";
+  if (line) $("tourLoadL").textContent = line; if (title) $("tourLoadT").textContent = title;
+}
+function tourError(title, text){
+  if (NS.view) { try { NS.view.dispose(); } catch {} NS.view = null; }   // nothing to show behind the message: stop drawing
+  $("tourErr").hidden = false; $("tourErrT").textContent = title; $("tourErrP").textContent = text;
+  $("tourErrB").innerHTML = `<button class="primary" type="button" data-tourretry>Try again</button><a class="ghost" href="./?view=nurseries">Back to the Ledger</a>`;
+  $("tourLoad").classList.add("done");
+}
+// 3D view settings, remembered on this device
+const T3 = Object.assign({drag: "map", speed: 4.5, labels: true, shadows: true, nb: false, light: false}, store.get("af:t3d", {}));
+const t3Save = () => store.set("af:t3d", T3);
+let tToastT = null;
+const tourToast = txt => { const t = $("tourToast"); t.textContent = txt; t.style.opacity = "1"; clearTimeout(tToastT); tToastT = setTimeout(() => { t.style.opacity = "0"; }, 1100); };
+function tourHelp(){
+  const v = NS.view; if (!v) return;
+  const walk = v.mode === "walk", fail = NS.cur && NS.cur.failed, mapDrag = v.drag === "map";
+  $("tourHelp").textContent = (walk ? (coarse() ? "Use the pad to walk · drag to look around" : `W A S D to walk · drag to look · Shift faster, Ctrl slower · scroll to change speed (${v.speed.toFixed(1)} m/s)`)
+    : coarse() ? (mapDrag ? "One finger moves · two fingers zoom and turn · double-tap to glide there" : "One finger turns · two fingers zoom and move · double-tap to glide there")
+    : (mapDrag ? "Drag to move · right-drag to turn · scroll to zoom · double-click to glide there · W A S D also move" : "Drag to turn · right-drag to move · scroll to zoom · double-click to glide there · W A S D also move"))
+    + (fail ? ` · ${fail} model${fail === 1 ? "" : "s"} couldn't load` : "");
+  $("tourPad").hidden = !walk || !coarse(); $("tourRun").hidden = !walk || !coarse();
+  $("tourZoom").hidden = walk;
+  document.querySelectorAll("[data-tm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tm === v.mode)));
+  document.querySelectorAll("[data-td]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.td === v.drag)));
+  $("tmOrbit").hidden = walk; $("tmKeys").hidden = coarse();
+  $("tmSpeed").value = v.speed; $("tmSpeedV").textContent = `· ${v.speed.toFixed(1)} m/s${walk ? "" : " walking"}`;
+  $("tmLabels").checked = T3.labels; $("tmShadows").checked = T3.shadows; $("tmNb").checked = T3.nb; $("tmLight").checked = T3.light;
+}
+function tourPlayBtn(on){ $("tourPlay").innerHTML = on ? `<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg><span class="lbl">Pause</span>` : `<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg><span class="lbl">Tour</span>`; }
+function tourCaption(i, s){
+  const n = NS.cur; if (!n || !s) return;
+  document.querySelectorAll("#tourStops button").forEach((b, j) => { b.classList.toggle("on", j === i); if (j === i) try { b.scrollIntoView({inline: "center", block: "nearest", behavior: "smooth"}); } catch {} });
+  let k, name = s.name, sub = "";
+  if (s.kind === "overview") { k = "Overview"; name = n.title; sub = [n.lot && n.lot.area ? `${int(n.lot.area)} UP²` : "", `${s.count} model${s.count === 1 ? "" : "s"} on the lot`, n.city].filter(Boolean).join(" · "); }
+  else if (s.kind === "nursery") { k = "Nursery"; name = s.sign || n.title; sub = [n.status.txt, n.status.cls === "build" && n.status.fin ? "ready " + fmtDay(n.status.fin) : ""].filter(Boolean).join(" · "); }
+  else if (s.kind === "plant") { k = `Planted · ${s.count}`; }
+  else if (s.kind === "totem") { k = "Totem"; sub = "Lets this nursery generate seeds"; }
+  else if (s.kind === "building") { k = "Building"; sub = s.m && s.m.subType ? titleCase(String(s.m.subType).replace(/_/g, " ")) : ""; }
+  else if (s.kind === "car") { k = `Vehicles · ${s.count}`; }
+  else if (s.kind === "ghost") { k = "Aligner"; name = "Where the nursery goes"; sub = NS.ghostLine || "The green outline, door edge in white. The orange line is where it is now."; }
+  else { k = `${titleCase(s.kind)}${s.count > 1 ? " · " + s.count : ""}`; }
+  if (s.m && s.m.constructionStatus && s.m.constructionStatus !== "completed" && s.kind !== "overview") sub = [sub, "under construction"].filter(Boolean).join(" · ");
+  $("tourCap").hidden = false; $("tourCapK").textContent = k; $("tourCapN").textContent = name; $("tourCapS").textContent = sub;
+  const cap = $("tourCap"); cap.style.animation = "none"; void cap.offsetWidth; cap.style.animation = "";
+}
+const stopLabel = s => s.kind === "overview" ? "Overview" : s.kind === "ghost" ? "New spot" : s.kind === "nursery" ? (s.sign ? "Nursery" : s.name) : s.name;
+function tourStops(){ const v = NS.view; if (!v) return; $("tourStops").innerHTML = v.stops.map((s, i) => `<button type="button" data-stop="${i}" style="--kc:${KCOL[s.kind] || "#8c9bb1"}"><i></i>${esc(stopLabel(s))}${s.count > 1 && s.kind !== "overview" ? `<em>×${s.count}</em>` : ""}</button>`).join(""); }
+// the aligner's planned spot, shown in the tour
+async function applyGhost(g){
+  const v = NS.view; if (!v || !g) return;
+  const mod = await l3(), c = v.center; if (!c) return;
+  const xz = pts => pts.map(([lng, lat]) => mod.toXZ(lat, lng, c));
+  NS.ghostLine = g.line || "";
+  const i = v.setGhost({target: xz(g.target), now: g.now ? xz(g.now) : null, label: "New spot · door"});
+  tourStops(); if (i != null) { v.tour(false); tourPlayBtn(false); v.goStop(i); }
+}
+function tourReset(){
+  NS.tok = null; $("tourMenu").hidden = true;
+  if (BLD.b && BLD.b.on) BLD.b.leave(); $("bld").hidden = true; $("tour").classList.remove("building"); $("tourBuild").setAttribute("aria-pressed", "false");
+  if (NS.view) { try { NS.view.dispose(); } catch {} NS.view = null; }
+}
+async function tourOpen(opts = {}){
+  const n = NS.cur; if (!n) return;
+  tourReset();
+  const tok = NS.tok = {};
+  $("tourT").textContent = n.title; $("tourS").textContent = [n.addr, n.city, n.status.txt].filter(Boolean).join(" · ");
+  document.title = `${n.title} in 3D · Alien Farmers`;
+  $("tourErr").hidden = true; $("tourCap").hidden = true; $("tourStops").innerHTML = ""; $("tourHelp").textContent = ""; $("tourPad").hidden = $("tourRun").hidden = true; $("tourMenu").hidden = true;
+  tourPlayBtn(false); tourLoading(0, "Reading the lot from Upland", "Landing…");
+  const old = $("tourCv"), cv = document.createElement("canvas"); cv.id = "tourCv"; cv.tabIndex = 0; old.replaceWith(cv);   // a fresh canvas each time (a closed view gives its 3D context back)
+  if (location.protocol === "file:") return tourError("Open the Ledger from its website", "3D needs the Ledger on its website (your site's link). Opened from a file or a zip, the browser blocks the 3D files.");
+  if (!webglOk()) return tourError("3D isn't available here", "This browser has WebGL turned off, and 3D needs it. Try Chrome, Firefox or Safari with hardware acceleration on.");
+  try {
+    const [mod, props] = await Promise.all([l3(), lotMap(n, !opts.cached).catch(e => { const c = NS.maps[n.key]; if (c) return c.props; throw e; })]);
+    if (NS.tok !== tok) return;
+    tourLoading(.03, "Checking Upland's 3D files");
+    const u = firstModel(mod, props, n);
+    if (u && !(await stAccess(u))) return tourError("Couldn't load Upland's 3D files", "Neither your browser nor the Alien Farmers helper could read Upland's 3D files right now. Try again in a minute.");
+    if (NS.tok !== tok) return;
+    const v = NS.view = mod.createLotView(cv, {drag: T3.drag, speed: T3.speed, labels: T3.labels, shadows: T3.shadows, light: T3.light});
+    v.onStop = (i, s) => tourCaption(i, s); v.onTourEnd = () => tourPlayBtn(false);
+    v.onSpeed = sp => { T3.speed = Math.round(sp * 10) / 10; t3Save(); tourToast(`Walking ${sp.toFixed(1)} m/s`); tourHelp(); };
+    const r = await v.load({props, prop: n.prop, lat: n.lat, lng: n.lng}, {quality: "hi", neighbours: T3.nb, onProgress: (f, t) => NS.tok === tok && tourLoading(.05 + f * .95, t, "Building the lot")});
+    if (NS.tok !== tok) return;
+    n.failed = r.failed.length;
+    if (r.models && !r.loaded) return tourError("Couldn't load the 3D files", `None of the ${r.models} models on this lot loaded (${r.failed[0] && r.failed[0].err || "unknown error"}). Upland's 3D files may be down; try again in a minute.`);
+    tourStops();
+    tourLoading(1, null); tourHelp(); tourCaption(0, r.stops[0]);
+    // the picture on the nursery's card in the Ledger
+    try { NS.shots = {...store.get("af:lotShot", {}), [n.key]: {ms: Date.now(), url: v.snapshot(960, 600, "image/jpeg", .84, "hero"), n: r.models}}; store.set("af:lotShot", NS.shots); } catch {}
+    if (opts.ghost) { v.intro(); await applyGhost(opts.ghost); } else await v.intro();
+  } catch (e) {
+    if (NS.tok !== tok) return;
+    const m = e && e.message || String(e);
+    if (m === "helper" || /^helper /.test(m)) tourError("Couldn't read Upland's map", "Neither your browser nor the Alien Farmers helper could read Upland's map right now. Try again in a minute.");
+    else tourError("Couldn't build the lot", /Failed to fetch|import/i.test(m) ? "The 3D part of the Ledger didn't load. Redeploy the whole folder, including lot3d.js and the vendor folder." : m);
+  }
+}
+async function tourShot(){
+  const v = NS.view, n = NS.cur; if (!v || !n) return;
+  const url = v.snapshot(1920, 1200, "image/png"), name = `alien-farmers-${slug(n.title) || "lot"}.png`;
+  const blob = await (await fetch(url)).blob(), file = new File([blob], name, {type: "image/png"});
+  if (coarse() && navigator.canShare && navigator.canShare({files: [file]})) { try { await navigator.share({files: [file], title: n.title}); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+}
+function goBack(){ try { if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) { history.back(); return; } } catch {} location.href = "./?view=nurseries"; }
+
+// ---- a small sheet (Share this build) ----
+function openSheet(title, sub, body){ $("sheetTitle").textContent = title; $("sheetSub").innerHTML = sub; $("sheetBody").innerHTML = body; $("sheet").hidden = false; }
+async function copyText(text, b){
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch { try { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); ok = document.execCommand("copy"); t.remove(); } catch {} }
+  const was = b.textContent; b.textContent = ok ? "Copied" : "Failed"; setTimeout(() => { b.textContent = was; }, 1600);
+}
+
+// ---- keeping builds safe (v55): designs live in this browser and on the owner's helper too ----
+const CLOUD_KEYS = ["af:designs", "af:catNames", "af:alDoorSide"], CL = {t: 0, pulled: 0};
+function mergeDesigns(mine, theirs){   // per lot: the newer one wins
+  const out = {...(theirs || {})};
+  for (const [k, v] of Object.entries(mine || {})) if (!out[k] || (v && v.ms || 0) >= (out[k].ms || 0)) out[k] = v;
+  return out;
+}
+async function cloudPull(force){
+  if (!hasHelper() || (!force && Date.now() - CL.pulled < 60e3)) return;
+  CL.pulled = Date.now();
+  try {
+    const r = await Promise.race([helperCall("cloud/load", {name: "builds"}), new Promise((_, no) => setTimeout(() => no(new Error("slow")), 4000))]);
+    const d = r && r.data; if (!d) { cloudSoon(); return; }
+    store.set("af:designs", mergeDesigns(store.get("af:designs", {}), d["af:designs"]));
+    store.set("af:catNames", {...(d["af:catNames"] || {}), ...store.get("af:catNames", {})});
+    if (store.get("af:alDoorSide", null) == null && d["af:alDoorSide"] != null) store.set("af:alDoorSide", d["af:alDoorSide"]);
+  } catch {}
+}
+function cloudSoon(){
+  if (!hasHelper()) return;
+  clearTimeout(CL.t); CL.t = setTimeout(async () => {
+    const data = {}; for (const k of CLOUD_KEYS) data[k] = store.get(k, null);
+    try { await helperCall("cloud/save", {name: "builds", data}); } catch {}
+  }, 2500);
+}
+// a share link opens share.html on this same site: read-only, Alien Farmers branded, no Ledger data in it
+const shareUrl = id => { const u = new URL("share.html", location.href); u.hash = `h=${encodeURIComponent(PH.h.url.replace(/\/+$/, ""))}&s=${id}`; return u.href; };
+async function shareBuild(data){
+  if (!hasHelper()) return openSheet("Share this build", "Share links need your alerts helper", `<section class="panel"><p>A share link is kept on your own helper (the free Cloudflare one that sends phone alerts), so it stays up after you close the Ledger.</p>
+    <p class="note">Open the site with your owner link on this device, then press Share again. Until then, <b>Picture</b> saves a build sheet you can send instead.</p></section>`);
+  const ids = store.get("af:shares", {}), k = `${data.lot.prop}|${data.design.name}`;
+  let r; try { r = await helperCall("share", {data, id: ids[k]}); } catch (e) {
+    return openSheet("Share this build", "", `<section class="panel"><p>The helper didn't take it: ${esc(e.message)}.</p><p class="note">If it says <b>not found</b>, your helper is the older version: paste the newest helper code (Owner settings → Copy helper code) into Cloudflare and deploy it.</p></section>`);
+  }
+  ids[k] = r.id; store.set("af:shares", ids);
+  const url = shareUrl(r.id);
+  openSheet("Share this build", `${esc(data.lot.title)} · ${esc(data.design.name)}`, `<section class="panel"><p>Anyone with this link sees the lot in 3D with your plan on it, the numbered build list, and can save the build sheet. It shows nothing else from your Ledger.</p>
+    <div class="share-link"><input readonly value="${esc(url)}" onclick="this.select()"><button class="primary" type="button" data-copy-share="${esc(url)}">Copy link</button><a class="ghost" href="${esc(url)}" target="_blank" rel="noopener">Open</a></div>
+    <p class="note">Change the design and press Share again: the same link updates. <button class="linkbtn" type="button" data-unshare="${esc(r.id)}" data-unshare-k="${esc(k)}">Turn this link off</button></p></section>`);
+}
+
+// ---- Build mode (v54): lay out the lot with Upland's own models, snapping like the game (owner only) ----
+const BLD = {mod: null, b: null, busy: false, held: null};
+function bldSheet(name){ const el = $("bld"); el.classList.toggle("sh-lib", name === "lib" && !el.classList.contains("sh-lib")); el.classList.toggle("sh-insp", name === "insp" && !el.classList.contains("sh-insp")); if (name !== "lib") el.classList.remove("sh-lib"); if (name !== "insp") el.classList.remove("sh-insp"); }
+// seeds in the wallet (for "You'll need … (2 in wallet)"), from the Ledger's saved history
+async function heldSeeds(){
+  if (BLD.held) return BLD.held;
+  const out = new Map(), h = await IDB.get("af:hist:" + SITE_CFG.account).catch(() => null);
+  if (h && h.items) for (const r of Object.values(h.items)) {
+    if (!r || !r.name || r.soldTs || r.plantTs || r.goneTs || !(r.mintTs || r.boughtTs || r.mintMs) || (r.listTs && !r.backTs)) continue;
+    const k = lc(r.name); out.set(k, (out.get(k) || 0) + 1);
+  }
+  return BLD.held = out;
+}
+const heldOf = (H, name) => { const a = lc(name); for (const k of [a, a.replace(/\s+tree$/, ""), a.replace(/s$/, ""), a + " tree", a.replace(/\s+lily$/, "")]) if (H.has(k)) return H.get(k); return 0; };
+async function buildToggle(force){
+  const v = NS.view, n = NS.cur; if (!v || !n || BLD.busy || PV) return;
+  const on = force != null ? force : !(BLD.b && BLD.b.on);
+  BLD.busy = true;
+  try {
+    if (!on) { if (BLD.b) BLD.b.leave(); $("bld").hidden = true; $("tour").classList.remove("building"); $("tourBuild").setAttribute("aria-pressed", "false"); tourHelp(); return; }
+    const mod = await l3(), H = await heldSeeds();
+    BLD.mod = BLD.mod || await import("./builder.js");
+    const own = () => ((store.get("af:props", null) || {}).list) || [], snap = () => ((store.get("af:shopSnap", null) || {}).shops) || [];
+    if (!BLD.b) BLD.b = BLD.mod.createBuilder({store, esc, int, nameOf: mod.nameOf, kindOf: mod.kindOf, thumb: m => mod.modelThumb(m, 128), coarse, sheet: bldSheet,
+      mineSet: () => new Set([...own().map(x => String(x.id)), ...snap().map(s => String(s.prop || "")).filter(Boolean)]),
+      myLots: () => own().filter(x => x.lat != null),
+      allMaps: () => Object.values(NS.maps).map(c => c.props || []),
+      mapOf: x => lotMap(x, false),
+      phases: () => PHASES, modelVer: MODEL_VER, toast: tourToast, onSave: cloudSoon, share: shareBuild,
+      seeds: () => SEED_GLBS.map(sl => { const name = titleCase(sl.replace(/-/g, " ")); return {name, url: `models/${sl}.glb?v=${MODEL_VER}`, n: heldOf(H, name)}; })});
+    if (NS.view !== v) return;
+    v.tour(false); tourPlayBtn(false); if (v.mode === "walk") v.setMode("orbit");
+    $("bld").hidden = false; $("tour").classList.add("building"); $("tourBuild").setAttribute("aria-pressed", "true"); $("tourMenu").hidden = true;
+    const props = (NS.maps[n.key] || {}).props || [];
+    await cloudPull();
+    await BLD.b.enter(v, n, props);
+    if (store.get("af:debug", false)) window.__afBld = BLD;
+  } catch (e) { tourToast("Build mode didn't start: " + (e && e.message || e)); }
+  finally { BLD.busy = false; }
+}
+
+// ---- the Nursery Aligner (v66): its own page, aligner.html, opened for this nursery's lot (owner only) ----
+// It hands the planned spot back through localStorage af:alGhost when "See it in 3D" opens this page with ?ghost=1.
+function alignOpen(){
+  const n = NS.cur; if (!n || PV) return;
+  location.href = `aligner.html?${n.prop ? "prop=" + encodeURIComponent(n.prop) : "shop=" + encodeURIComponent(n.shop.id)}&from=3d`;
+}
+function alignGhost(n){
+  if (Q.get("ghost") !== "1" || !n || !n.prop) return null;
+  const g = store.get("af:alGhost", null);
+  return g && String(g.prop) === String(n.prop) && Array.isArray(g.target) && g.target.length === 4 && Date.now() - (g.ms || 0) < DAY ? {target: g.target, now: g.now || null, line: g.line || ""} : null;
+}
+
+// walking pad (phones)
+(() => {
+  const pad = $("tourPad"), knob = pad.querySelector("i"); let id = null;
+  const set = e => { const r = pad.getBoundingClientRect(), R = r.width / 2 - 12; let dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2; const L = Math.hypot(dx, dy); if (L > R) { dx *= R / L; dy *= R / L; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`; NS.view && NS.view.setMove(dx / R, -dy / R, $("tourRun").getAttribute("aria-pressed") === "true"); };
+  pad.addEventListener("pointerdown", e => { id = e.pointerId; pad.setPointerCapture(id); NS.view && NS.view.tour(false); set(e); e.preventDefault(); });
+  pad.addEventListener("pointermove", e => { if (e.pointerId === id) set(e); });
+  const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ""; NS.view && NS.view.setMove(0, 0, null); };
+  pad.addEventListener("pointerup", end); pad.addEventListener("pointercancel", end);
+})();
+document.addEventListener("click", async e => {
+  const t = e.target;
+  if (t.closest("[data-close]")) { $("sheet").hidden = true; return; }
+  const c = t.closest("[data-copy-share]"); if (c) { copyText(c.dataset.copyShare, c); return; }
+  const u = t.closest("[data-unshare]"); if (u) { try { await helperCall("unshare", {id: u.dataset.unshare}); const ids = store.get("af:shares", {}); delete ids[u.dataset.unshareK]; store.set("af:shares", ids); u.textContent = "Link turned off ✓"; u.disabled = true; } catch (err) { u.textContent = "Couldn't: " + err.message; } return; }
+  if (t.closest("#tourX")) { e.preventDefault(); goBack(); return; }
+  if (t.closest("[data-tourretry]")) { tourOpen(); return; }
+  if (!NS.view) return;
+  const menu = $("tourMenu");
+  if (t.closest("#tourMenuBtn")) { menu.hidden = !menu.hidden; $("tourMenuBtn").setAttribute("aria-expanded", String(!menu.hidden)); tourHelp(); return; }
+  if (!menu.hidden && !t.closest("#tourMenu") && t.closest("#tour")) { menu.hidden = true; $("tourMenuBtn").setAttribute("aria-expanded", "false"); }
+  const st = t.closest("[data-stop]"); if (st) { NS.view.tour(false); tourPlayBtn(false); NS.view.goStop(+st.dataset.stop); return; }
+  const tm = t.closest("[data-tm]"); if (tm) { NS.view.setMode(tm.dataset.tm); tourPlayBtn(false); tourHelp(); return; }
+  const td = t.closest("[data-td]"); if (td) { T3.drag = td.dataset.td; t3Save(); NS.view.set("drag", T3.drag); tourHelp(); return; }
+  const tn = t.closest("[data-tn]"); if (tn) { const [k, v] = tn.dataset.tn.split(":"); NS.view.nudge({[k]: +v}); tourPlayBtn(false); return; }
+  const tz = t.closest("[data-tz]"); if (tz) { tourPlayBtn(false); if (tz.dataset.tz === "reset") NS.view.reset(); else NS.view.nudge({zoom: tz.dataset.tz === "in" ? 1 : -1}); return; }
+  if (t.closest("#tmAlign")) { menu.hidden = true; alignOpen(); return; }
+  if (t.closest("#tourBuild")) { buildToggle(); return; }
+  if (t.closest("#tourPlay")) { const on = !NS.view.touring; NS.view.tour(on); tourPlayBtn(on); tourHelp(); return; }
+  if (t.closest("#tourShot")) { tourShot(); return; }
+  if (t.closest("#tourRun")) { const b = $("tourRun"), on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("go", on); NS.view.set("run", on); return; }
+});
+$("tmSpeed").addEventListener("input", e => { if (NS.view) NS.view.setSpeed(+e.target.value); });
+$("tmLabels").addEventListener("change", e => { T3.labels = e.target.checked; t3Save(); NS.view && NS.view.set("labels", T3.labels); });
+$("tmShadows").addEventListener("change", e => { T3.shadows = e.target.checked; t3Save(); NS.view && NS.view.set("shadows", T3.shadows); });
+$("tmLight").addEventListener("change", e => { T3.light = e.target.checked; t3Save(); NS.view && NS.view.set("light", T3.light); });
+$("tmNb").addEventListener("change", e => { T3.nb = e.target.checked; t3Save(); if (NS.cur) tourOpen({cached: true}); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("sheet").hidden) { $("sheet").hidden = true; return; }
+  if (!$("tourMenu").hidden) $("tourMenu").hidden = true; else if (BLD.b && BLD.b.on) buildToggle(false); else goBack();
+});
+
+// ---- start ----
+(async () => {
+  tourLoading(0, "Finding the nursery", "Landing…");
+  await loadStore();
+  let n = findNursery();
+  const known = n && (n.lat != null || (store.get("af:lotMap", {})[n.key]));
+  if (!known) {   // this device has nothing saved for it yet: take the public copy
+    const snap = await pubCopy();
+    if (snap && snap.app === "af-site" && snap.keys) for (const k of [...NEED, "af:nursSeen"]) if (snap.keys[k] != null && store.get(k, null) == null) mem.set(k, snap.keys[k]);
+    n = findNursery();
+  }
+  NS.maps = store.get("af:lotMap", {}); NS.shots = store.get("af:lotShot", {});
+  if (!n) return tourError("Which nursery?", "Open this page from a nursery card in the Ledger (Nurseries).");
+  NS.cur = await fillIn(n);
+  if (NS.cur.lat == null && !NS.maps[NS.cur.key]) { $("tourT").textContent = NS.cur.title; return tourError("Couldn't find this nursery on the map", "Its place isn't known yet. Open the Ledger's Nurseries page once, then try again."); }
+  tourOpen({cached: true, ghost: alignGhost(NS.cur) || undefined});   // v66: back from the aligner with its planned spot
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090f">
+<meta name="robots" content="noindex">
+<title>Nursery Aligner · Alien Farmers</title>
+<meta name="description" content="Place a nursery exactly: squared to the lot, centred and on the 1.2 m paver grid. Pick the lot, add one screenshot, get the arrow taps and the turn.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<!-- v66 aligner: Alien's Nursery Aligner (nursery-aligner v5) inside the Ledger. Maths unchanged in aligner/math.js, place.js,
+     place2.js; the page logic is aligner/ui.js. Opened from a nursery card (aligner.html?prop=<property id> or ?shop=<shop id>)
+     or from the 3D page's "Place the nursery". Upland's public map, lot and profile pages are read through the Alien Farmers
+     helper (/pubup, no login), straight from Upland only if the helper can't be reached. Read-only: it never moves anything. -->
+<style>
+:root{
+  --bg:#07090f; --surface:#0d131d; --raised:#131b28; --sunk:#0a0f17; --line:#1b2534; --line-2:#2a3850;
+  --ink:#e9eef5; --muted:#8c9bb1; --dim:#5f6e84;
+  --leaf-rgb:94,227,143; --leaf:#5ee38f; --leaf-ink:#04210f; --leaf-soft:rgba(var(--leaf-rgb),.12); --leaf-line:rgba(var(--leaf-rgb),.4);
+  --daisy:#f6b552; --daisy-soft:rgba(246,181,82,.13); --sky:#62dcff; --sky-soft:rgba(98,220,255,.12); --bad:#ff7070;
+  /* names the aligner's drawing code uses */
+  --accent:#5ee38f; --accent-ink:#04210f; --amber:#f6b552; --blue:#62dcff;
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{background:radial-gradient(1100px 620px at 0% -10%,rgba(var(--leaf-rgb),.07),transparent 60%),radial-gradient(900px 520px at 100% -5%,rgba(124,196,255,.06),transparent 60%),var(--bg);background-attachment:fixed;
+  color:var(--ink);font:15px/1.5 var(--body);min-height:100vh;overflow-x:hidden}
+a{color:var(--leaf)}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+input,select,textarea{font:14px var(--body);color:var(--ink);background:var(--sunk);border:1px solid var(--line-2);border-radius:10px;padding:8px 11px;min-width:0;max-width:100%}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+select option{background:var(--surface)}
+button{font:600 14px var(--body);border-radius:10px;cursor:pointer;color:var(--ink)}
+button.primary{background:var(--leaf);color:var(--leaf-ink);border:0;padding:9px 16px;box-shadow:0 6px 20px -8px rgba(var(--leaf-rgb),.55)}
+button.primary:hover{filter:brightness(1.08)}
+button.ghost,a.ghost{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--raised);border:1px solid var(--line-2);padding:8px 12px;font-size:13px;color:var(--ink);font-weight:600;text-decoration:none;border-radius:10px}
+button.ghost:hover,a.ghost:hover{border-color:var(--leaf-line)}
+button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+
+/* ---------- shell ---------- */
+.top{position:sticky;top:0;z-index:20;background:rgba(7,9,15,.88);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:12px 18px;padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));flex-wrap:wrap}
+.back{display:inline-flex;align-items:center;gap:6px;flex:none;height:36px;padding:0 12px 0 8px;border-radius:10px;border:1px solid var(--line-2);background:var(--raised);color:var(--ink);font:600 13px var(--body);text-decoration:none}
+.back svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.back:hover{border-color:var(--leaf-line)}
+.ttl{display:grid;min-width:0;flex:1 1 200px}
+.eyebrow{font:600 10.5px/1.2 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--leaf)}
+.ttl h1{margin:2px 0 0;font:800 22px/1.1 var(--display);letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stepper{display:flex;gap:4px;margin:0;padding:3px;list-style:none;border:1px solid var(--line-2);border-radius:12px;background:var(--sunk);flex:none}
+.stepper button{display:flex;align-items:center;gap:7px;border:0;background:none;border-radius:9px;padding:6px 12px 6px 7px;color:var(--muted);font:600 13px var(--body)}
+.stepper button i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line-2);font:700 11.5px var(--mono);font-style:normal}
+.stepper button.done{color:var(--ink)}.stepper button.done i{background:var(--leaf-soft);border-color:var(--leaf-line);color:var(--leaf)}
+.stepper button.cur{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)}.stepper button.cur i{background:var(--leaf);border-color:var(--leaf);color:var(--leaf-ink)}
+.page{max-width:1240px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(40px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:14px}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:9px 12px;font-size:13.5px;border:1px dashed rgba(246,181,82,.5);border-radius:12px;background:var(--daisy-soft)}
+.banner b{color:var(--daisy)}.banner span{flex:1 1 240px;min-width:0}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+@media (min-width:1000px){.grid{grid-template-columns:minmax(0,1fr) 380px}.result{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow:auto}}
+.steps{display:grid;gap:10px;min-width:0}
+
+/* ---------- steps ---------- */
+.step{background:var(--surface);border:1px solid var(--line);border-radius:16px;min-width:0}
+.step.current{border-color:var(--leaf-line);box-shadow:0 0 0 1px rgba(var(--leaf-rgb),.12)}
+.step h2{margin:0;display:flex;align-items:center;gap:10px;min-width:0;padding:12px 16px;cursor:pointer;user-select:none;font:700 17px/1.2 var(--display);letter-spacing:-.01em}
+.step h2 .n{display:grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);font:700 12.5px var(--mono);color:var(--muted)}
+.step.current h2 .n{background:var(--leaf);border-color:var(--leaf);color:var(--leaf-ink)}
+.step.ok h2 .n{background:var(--leaf-soft);border-color:var(--leaf-line);color:var(--leaf)}
+.step .sum{margin-left:auto;font:500 13px var(--body);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.step .chev{flex:none;color:var(--dim);font-size:12px;transition:transform .15s}
+.step.collapsed .chev{transform:rotate(-90deg)}
+.step .body{display:flex;flex-direction:column;gap:12px;padding:0 16px 16px;min-width:0}
+.step.collapsed .body{display:none}
+.how{margin:0;color:var(--muted);font-size:13.5px;max-width:80ch}
+.how b{color:var(--ink);font-weight:600}
+.lbl{margin:0;font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.bar > input{flex:1 1 200px}
+.msg{margin:0;font-size:13px;color:var(--muted);min-height:1em}
+.msg:empty{display:none}
+.err{color:var(--bad);font-weight:500}.ok{color:var(--leaf);font-weight:500}.warn{color:var(--bad);font-weight:500;margin:0}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+/* step 1: your nurseries */
+.nurs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.nur{display:grid;gap:2px;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--sunk);min-width:0}
+.nur:hover{border-color:var(--leaf-line)}
+.nur b{font:700 15px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nur span{font:500 12px var(--body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nur[aria-pressed="true"]{border-color:var(--leaf);background:var(--leaf-soft);box-shadow:inset 0 0 0 1px var(--leaf)}
+.nur[aria-pressed="true"] span{color:var(--ink)}
+.nur.busy{opacity:.7}
+details.more{border-top:1px solid var(--line);padding-top:10px}
+details.more > summary,details.paste > summary{cursor:pointer;color:var(--muted);font-size:13.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+details.more > summary::-webkit-details-marker,details.paste > summary::-webkit-details-marker{display:none}
+details.more > summary::before,details.paste > summary::before{content:"▸";font-size:11px;color:var(--dim);transition:transform .15s}
+details[open].more > summary::before,details[open].paste > summary::before{transform:rotate(90deg)}
+details.more > div{display:grid;gap:10px;margin-top:10px}
+details.paste{display:grid;gap:8px}
+details.paste > div{display:grid;gap:8px;margin-top:8px}
+.never{padding:8px 11px;border-radius:10px;border:1px solid rgba(255,112,112,.4);background:rgba(255,112,112,.08);color:var(--ink);font-size:13px}
+.never b{color:var(--bad)}
+textarea{width:100%;min-height:60px;max-height:140px;resize:vertical;font:12.5px/1.4 var(--mono)}
+.lotpick{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:start}
+.lotpick .field{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.lotpick select{width:100%}
+.lotpick canvas{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:var(--sunk);cursor:pointer}
+@media (max-width:640px){.lotpick{grid-template-columns:minmax(0,1fr) 120px}}
+/* step 2: screenshot */
+.drop{border:1.5px dashed var(--line-2);border-radius:14px;background:var(--sunk);padding:26px 16px;text-align:center;color:var(--muted);cursor:pointer;display:grid;gap:6px;justify-items:center}
+.drop b{color:var(--ink);font:700 16px var(--display)}
+.drop svg{width:30px;height:30px;fill:none;stroke:var(--leaf);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.drop:hover,.drop.over{border-color:var(--leaf);color:var(--ink)}
+.saved{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px;color:var(--muted)}
+.saved span{flex:1 1 220px;min-width:0}
+.phase{border-radius:10px;padding:8px 12px;font-weight:500;font-size:13.5px;border:1px solid var(--line-2);background:var(--sunk)}
+.phase.is-lot{box-shadow:inset 4px 0 0 var(--sky)}.phase.is-nur{box-shadow:inset 4px 0 0 var(--daisy)}.phase.is-done{box-shadow:inset 4px 0 0 var(--leaf);color:var(--leaf)}
+.phase b{font-weight:700}
+.canvasbox{position:relative;border-radius:12px;overflow:hidden;background:var(--sunk);border:1px solid var(--line);display:flex;justify-content:center}
+.canvasbox canvas{display:block;max-width:100%;max-height:58vh;width:auto;height:auto;cursor:crosshair;touch-action:manipulation}
+.canvasbox canvas.loupe{position:absolute;top:8px;right:8px;width:132px;height:132px;border-radius:50%;border:2px solid var(--leaf);pointer-events:none;background:var(--sunk)}
+.prompt{flex:1 1 100%;min-width:0;font-size:14px;font-weight:500;margin:0}
+.prompt .k{font-family:var(--mono);color:var(--leaf)}
+.prompt.done{color:var(--leaf)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.doors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+/* step 3: place */
+.turns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.turns button{padding:11px 10px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px;align-items:end}
+.field{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:0}
+.field select{width:100%}
+.field input{width:110px;font-family:var(--mono)}
+.check{display:flex;align-items:center;gap:9px;font-size:14px;padding:6px 0;cursor:pointer;color:var(--ink)}
+.check input{width:20px;height:20px;accent-color:var(--leaf);flex:none;margin:0}
+
+/* ---------- the answer ---------- */
+.result{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.result h2{margin:0;font:700 17px var(--display);display:flex;align-items:center;gap:8px}
+.result h2 span{margin-left:auto;font:500 12px var(--mono);color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;margin:0}
+.taps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tap{background:var(--sunk);border:1px solid var(--line-2);border-radius:14px;padding:10px 12px;display:grid;gap:4px;min-width:0}
+.tap .key{font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.tap .row{display:flex;align-items:center;gap:10px}
+.tap .arrow{font:700 30px/1 var(--body);color:var(--leaf)}
+.tap .n{font:800 46px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tap .hint{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tap .hint i{display:inline-block;font-style:normal;font-size:16px;line-height:1;color:var(--ink)}
+.turn{background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:13.5px}
+.turn b{color:var(--daisy)}
+.isdone{padding:9px 12px;border-radius:12px;background:var(--leaf-soft);border:1px solid var(--leaf-line);color:var(--leaf);font-weight:600;font-size:13.5px}
+.line{display:flex;justify-content:space-between;align-items:center;gap:10px;font:13px var(--mono);background:var(--sunk);border-radius:10px;padding:7px 8px 7px 12px;min-width:0}
+.line span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.line button{padding:5px 11px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:0;font-size:13px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:0}
+.facts dd em{font-style:normal;color:var(--dim);margin-left:6px}
+#pvBox canvas{max-height:360px;cursor:grab;touch-action:none}
+#pvBox canvas.drag{cursor:grabbing}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.see3d{align-self:flex-start}
+.see3d svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+/* phone: the taps stay in reach at the bottom of the screen */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;align-items:center;gap:10px;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:rgba(13,19,29,.95);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--line-2)}
+.dock .d-taps{flex:1;min-width:0;display:flex;align-items:baseline;gap:14px;font:800 26px/1 var(--display);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.dock .d-taps em{font:700 20px var(--body);font-style:normal;color:var(--leaf);margin-right:3px}
+.dock .d-taps small{font:600 12px var(--body);color:var(--daisy)}
+.dock button{flex:none}
+@media (min-width:1000px){.dock{display:none!important}}
+@media (max-width:999px){body.has-dock .page{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+  /* one column: the taps and the map to drag come right after the screenshot, with the Place controls under them */
+  .steps{display:contents}#s1{order:1}#s2{order:2}.result{order:3}#s3{order:4}}
+@media (max-width:640px){
+  .top-in{gap:8px 10px}
+  .ttl h1{font-size:19px}
+  .stepper{order:3;flex:1 1 100%}.stepper li{flex:1;display:flex}.stepper button{flex:1;justify-content:center;padding:6px 6px}
+  .back span{display:none}.back{padding:0 8px}
+  .step h2{padding:12px 14px}.step .body{padding:0 14px 14px}
+  input,select,textarea{font-size:16px}
+  .canvasbox canvas{max-height:70vh}
+  .btns button{flex:1 1 calc(50% - 4px);padding:11px 10px}
+  .btns button.primary{flex-basis:100%}
+  .nurs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .result{padding:12px 14px}
+  .tap .n{font-size:40px}
+  .doors{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="back" id="back" href="./?view=nurseries" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span id="backT">Nurseries</span></a>
+    <div class="ttl"><span class="eyebrow">Alien Farmers · Nursery Aligner</span><h1 id="hT">Place a nursery</h1></div>
+    <ol class="stepper" id="stepper" aria-label="Steps">
+      <li><button type="button" data-step="s1"><i>1</i>Lot</button></li>
+      <li><button type="button" data-step="s2"><i>2</i>Screenshot</button></li>
+      <li><button type="button" data-step="s3"><i>3</i>Place</button></li>
+    </ol>
+  </div>
+</header>
+
+<main class="page">
+  <div class="banner" id="banner" hidden>
+    <span><b>Example: the Tokyo lot.</b> Filled in so you can see an answer.</span>
+    <button class="ghost" id="clearEx" type="button">Start with my lot</button>
+  </div>
+
+  <div class="grid">
+    <div class="steps">
+      <section class="step" id="s1">
+        <h2><span class="n">1</span>Lot<span class="sum"></span><span class="chev" aria-hidden="true">▾</span></h2>
+        <div class="body">
+          <div id="nurBox" hidden>
+            <p class="lbl" id="nurLbl">Your nurseries</p>
+            <div class="nurs" id="nurList"></div>
+          </div>
+          <p class="how" id="nurNone" hidden>Pick the lot below: your username lists your properties.</p>
+          <p class="msg" id="mapMsg" aria-live="polite"></p>
+          <div class="lotpick" id="lotPick" hidden>
+            <label class="field">This lot
+              <select id="lotSel" aria-label="Your lot"></select>
+              <span class="note">Blue on the little map. Tap another lot there if it's the wrong one.</span>
+            </label>
+            <canvas id="mini" width="440" height="320" aria-label="Lots around it"></canvas>
+          </div>
+          <details class="more" id="more">
+            <summary>Another lot</summary>
+            <div>
+              <div class="bar"><input id="userIn" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Upland username" aria-label="Upland username"><button class="ghost" type="button" id="myProps">My properties</button></div>
+              <select id="propList" hidden aria-label="Your properties"></select>
+              <div class="bar"><input id="propIn" type="text" inputmode="numeric" placeholder="Property ID or Upland link" aria-label="Property ID or Upland link"><button class="ghost" id="loadUp" type="button">Load</button></div>
+              <details class="paste" id="paste">
+                <summary>Can't connect? Paste the map data</summary>
+                <div>
+                  <p class="how">On a computer: open play.upland.me, press F12 → Network, move the map a little, click the <b>map?north=…</b> request, open <b>Response</b>, copy it all and paste it here.</p>
+                  <p class="never"><b>Copy only the Response, never the headers:</b> they hold your login token.</p>
+                  <textarea id="mapText" spellcheck="false" placeholder='[{"prop_id":…,"boundaries":…,"models":[…]}, …]' aria-label="Map data"></textarea>
+                  <div class="bar"><button class="ghost" id="useMap" type="button">Use this map data</button></div>
+                </div>
+              </details>
+              <button class="ghost" id="exBtn" type="button" style="justify-self:start">See an example (Tokyo)</button>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="step" id="s2">
+        <h2><span class="n">2</span>Screenshot<span class="sum"></span><span class="chev" aria-hidden="true">▾</span></h2>
+        <div class="body">
+          <p class="how" id="s2how">In Upland, put the nursery in <b>move mode</b> with the blue lot outline showing, and take a screenshot. It finds the outline and the nursery for you; check the dots, or tap the corners yourself.</p>
+          <div class="drop" id="drop" tabindex="0" role="button"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg><b>Add the screenshot</b><span>Tap to pick it from your photos, or paste (Ctrl+V) or drop it here</span></div>
+          <input type="file" accept="image/*" hidden id="file">
+          <div class="saved" id="savedRow" hidden><span>No screenshot? If the nursery stands where Upland has it saved, use that spot.</span><button class="ghost" type="button" id="useSaved">Use its saved spot</button></div>
+          <div class="phase" id="phaseTag" hidden></div>
+          <div class="canvasbox" id="shotBox" hidden><canvas id="shot"></canvas><canvas class="loupe" id="loupe" width="132" height="132" hidden></canvas></div>
+          <div id="doorAsk" hidden><p class="prompt">Which way does the nursery's door (the white entrance) face? You pick this once.</p><div class="doors" id="doors"></div></div>
+          <div class="bar" id="shotBar" hidden>
+            <p class="prompt" id="prompt"></p>
+            <div class="btns">
+              <button type="button" class="primary" id="lotDone">Lot done</button>
+              <button type="button" class="ghost" id="findBtn">Find outline</button>
+              <button type="button" class="ghost" id="findNurBtn">Find nursery</button>
+              <button type="button" class="ghost" id="clearNurBtn">Clear nursery</button>
+              <button type="button" class="ghost" id="undoBtn">Undo</button>
+              <button type="button" class="ghost" id="replaceBtn">New screenshot</button>
+            </div>
+          </div>
+          <p id="fitMsg" class="note" hidden></p>
+        </div>
+      </section>
+
+      <section class="step" id="s3">
+        <h2><span class="n">3</span>Place<span class="sum"></span><span class="chev" aria-hidden="true">▾</span></h2>
+        <div class="body">
+          <p class="how"><b>Drag the green nursery</b> on the map to roughly where you want it, and turn it until the door (white edge) faces the right way. It's squared to the edge you pick and centred exactly.</p>
+          <div class="turns"><button type="button" class="ghost" id="rotL">↺ Turn door</button><button type="button" class="ghost" id="rotR">↻ Turn door</button></div>
+          <button type="button" class="ghost" id="openBtn" style="justify-self:start">Move to the open space</button>
+          <div class="opts">
+            <label class="field">Square it to <select id="alignSel"></select></label>
+            <label class="field">Metres per tap <input id="step" type="number" min="0.001" step="0.005" value="0.05"></label>
+          </div>
+          <div>
+            <label class="check"><input type="checkbox" id="cLR" checked> Centre left–right</label>
+            <label class="check"><input type="checkbox" id="cFB" checked> Centre front–back</label>
+            <label class="check"><input type="checkbox" id="grid" checked> Snap the rest to the 1.2 m paver grid</label>
+          </div>
+          <p class="note">Both ticked = dead centre in the open space where you drop it. Untick one to slide it that way on the paver grid. Left and right are as seen facing the door from inside.</p>
+        </div>
+      </section>
+    </div>
+
+    <aside class="result" aria-live="polite">
+      <h2>Taps<span id="resWhere"></span></h2>
+      <div id="answer"><p class="empty">Pick the lot and add a screenshot to see the taps.</p></div>
+      <div class="canvasbox" id="pvBox" hidden><canvas id="preview" aria-label="Lot with the nursery now and where it goes"></canvas></div>
+      <div class="legend" id="legend" hidden>
+        <span><i class="sw" style="background:var(--blue)"></i>Lot</span>
+        <span><i class="sw" style="background:var(--amber)"></i>Nursery now</span>
+        <span><i class="sw" style="background:var(--accent)"></i>Where it goes (drag it)</span>
+        <span><i class="sw" style="background:#ff5a8a"></i>Other buildings</span>
+      </div>
+      <a class="ghost see3d" id="see3d" href="#" hidden><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>See it in 3D</a>
+    </aside>
+  </div>
+</main>
+
+<div class="dock" id="dock" hidden><div class="d-taps" id="dockTaps"></div><button type="button" class="ghost" id="dockCopy">Copy</button></div>
+
+<script src="aligner/math.js"></script>
+<script src="aligner/place.js"></script>
+<script src="aligner/place2.js"></script>
+<script src="aligner/ui.js"></script>
+</body>
+</html>
