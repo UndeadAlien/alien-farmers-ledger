@@ -4311,6 +4311,7 @@ const SITE = (() => {
     renderMarket(D); renderTiming(D); renderPlayers(D); renderMissing();
     if (!S.data) { applySearchAll(); return; }
     renderRestock(D);
+    planPostSoon();   // v67: the game extension
     renderSummary(D); renderInventory(D); renderShops(); renderSales(D); renderCommission(D);
     if (onView("next")) renderPlanner();
     if (learnedDirty) saveLearned();
@@ -4725,6 +4726,46 @@ const SITE = (() => {
     return X ? {cities: X.cities, byCity: X.byCity, onShelf: X.onShelf, w: X.w, why: X.why} : {cities: [], byCity: new Map(), onShelf: new Map(), w: () => 1, why: () => ""};
   }
   window.__afRestock = {plantHold: () => plantHold(), citySplit, holdSet};   // for tests and other tabs' debugging (v66:restock)
+  // ---------- v67: the Alien Farmers game extension ----------
+  // The extension (in the play.upland.me tab) shows this Fill shop plan next to the game. Its helper script on this page asks
+  // with window.postMessage({af: "plan-req"}) and gets {af: "plan", plan} back, and a fresh copy every time the plan changes.
+  // Nothing leaves the browser and nothing here talks to Upland. planPack() is plain data in, plain data out (tested on its own).
+  function planPack(R, shops, o){
+    const up = {}, keys = {};   // Ledger seed key → Upland's name for it, and Upland's names → key (for matching shelf rows)
+    for (const s of shops) for (const it of s.items || []) if (it.n && it.k) { keys[it.n] = it.k; if (!up[it.k]) up[it.k] = it.n; }
+    for (const s of shops) for (const g of (s.gen && s.gen.pool) || []) if (g.n && g.k) { keys[g.n] = g.k; if (!up[g.k]) up[g.k] = g.n; }
+    const price = k => { const v = o.price(k); return v > 0 ? Math.round(v) : null; };
+    const prices = {}; for (const x of R.plan || []) { const v = price(x.k); if (v) prices[x.k] = v; }
+    for (const s of shops) for (const it of s.items || []) if (it.k && !(it.k in prices)) { const v = price(it.k); if (v) prices[it.k] = v; }
+    const fill = (R.groups || []).filter(g => g.sid != null && g.steps.length).map(g => ({sid: +g.sid,
+      steps: g.steps.map(st => ({k: st.k, name: o.nice(st.k), up: up[st.k] || "", n: st.n, price: price(st.k), wallet: st.x ? st.x.held : null}))}));
+    const pulls = (R.pulls || []).map(p => ({sid: +p.sid, k: p.k, name: o.nice(p.k), up: up[p.k] || "", n: p.n, old: p.old || 0, usd: p.usd || 0,
+      for: [...(p.for instanceof Map ? p.for.keys() : Object.keys(p.for || {}))].map(o.nice)}));
+    return {v: 1, account: o.account, user: o.user, view: o.view,
+      shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
+      fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0)};
+  }
+  const XB = {sig: "", plan: null, t: 0};
+  function planNow(){
+    const R = lastD && lastD.plan, h = S.data && S.data.hist; if (!h || !R || !R.groups) return null;
+    if (!h.to || !Object.keys(h.items || {}).length) return null;   // the chain hasn't loaded: an empty plan would wipe the game panel's last good one
+    return planPack(R, shelfSource(), {price: k => { const lp = fillPrice({k, price: listAtOf(k)}); return lp && lp.p; }, nice, label: shopLabel,
+      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner"});
+  }
+  function planPost(force){
+    let plan = null; try { plan = planNow(); } catch (e) { console.warn("extension plan", e); }
+    const sig = plan ? JSON.stringify(plan) : "";
+    if (!force && (!plan || sig === XB.sig)) return;
+    if (plan) { XB.sig = sig; XB.plan = plan; XB.at = Date.now(); }
+    window.postMessage({af: "plan", plan: XB.plan ? {...XB.plan, at: XB.at} : null, why: XB.plan ? "" : S.data ? "no plan yet" : "loading"}, location.origin);
+  }
+  const planPostSoon = () => { clearTimeout(XB.t); XB.t = setTimeout(() => planPost(false), 400); };
+  window.addEventListener("message", e => {
+    if (e.source !== window || !e.data || e.data.af !== "plan-req") return;
+    if (e.data.refresh && !PV) { const b = $("refresh"); if (b) b.click(); shelfReal(true); }
+    planPost(true);
+  });
+  window.__afPlan = {pack: planPack, now: () => planNow()};   // for tests
   function restockPlan(D){
     const now = Date.now(), d14 = now - 14 * DAY, d7 = now - 7 * DAY, h = S.data.hist;
     const seedSel = k => !S.seeds.size || S.seeds.has(k);
