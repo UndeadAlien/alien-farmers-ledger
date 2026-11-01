@@ -399,8 +399,11 @@ export default {
       // sell, transfer or change anything in Upland. Secrets (Cloudflare → Settings → Variables and Secrets):
       // UPLAND_APP_ID, UPLAND_APP_SECRET, UPLAND_HOOK_KEY (the value of the x-af-hook header set in the Developers Portal).
       if (p === "/upland-hook" && req.method === "POST") {
-        if (!env.UPLAND_HOOK_KEY || req.headers.get("x-af-hook") !== env.UPLAND_HOOK_KEY) return json({error: "not allowed"}, 403);
         const ev = await req.json().catch(() => null), type = ev && ev.type, d = (ev && ev.data) || {};
+        // the Developers Portal's "Test Webhook" posts {id, message: "Upland services validation call"} with no type and
+        // without the custom header: answer 200 (it carries nothing and changes nothing here)
+        if (ev && !type && /validation/i.test(String(ev.message || ""))) return json({ok: true, validated: true});
+        if (!env.UPLAND_HOOK_KEY || req.headers.get("x-af-hook") !== env.UPLAND_HOOK_KEY) return json({error: "not allowed"}, 403);
         const uid = String(d.userId || d.uplandUserId || "").slice(0, 80), code = String(d.code || "").slice(0, 80);
         if (type === "AuthenticationSuccess" && code && d.accessToken) {
           const sid = await env.AF.get("upp:" + code); if (!sid) return json({ok: true, ignored: "unknown code"});
