@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alien Farmers Ledger · Privacy</title><link rel="icon" href="icons/icon-192.png">
+<style>
+:root{color-scheme:dark;--bg:#0b1310;--ink:#e8f2ec;--muted:#9fb3a8;--line:#1f2d27;--acc:#5ee38f}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:680px;margin:0 auto;padding:40px 22px 60px}h1{font-size:28px;margin:0 0 4px}h2{font-size:18px;margin:30px 0 6px}
+p,li{color:var(--muted)}b{color:var(--ink)}a{color:var(--acc)}.date{font-size:14px}ul{padding-left:20px}
+</style></head>
+<body><main>
+<h1>Privacy</h1><p class="date">Alien Farmers Ledger · updated November 1, 2026</p>
+<p>Alien Farmers Ledger is a fan-made tool for Upland players. It is not made by or affiliated with Upland.</p>
+<h2>What it reads</h2>
+<p>When you choose <b>Connect with Upland</b>, Upland asks you to approve the connection with a code. After you approve, the Ledger can read, through Upland's official Developers API and with read-only permission:</p>
+<ul><li>your Upland profile (username and account id)</li><li>your UPX and Spark balances</li><li>the NFTs and properties you own</li></ul>
+<p>The rest of the Ledger reads public information only: Upland's public blockchain history and Upland's public shop pages.</p>
+<h2>What it can't do</h2>
+<p>It can't list, buy, sell, transfer or change anything in your Upland account, and it never asks for your password or keys.</p>
+<h2>What is kept, and where</h2>
+<ul><li>The access token Upland issues for your connection is kept on the Ledger's server (a Cloudflare Worker) and is never sent to your browser or anyone else.</li>
+<li>Your browser keeps a random session id that links it to that token.</li>
+<li>Replies from Upland are cached for about a minute to avoid repeat requests. Nothing else about your account is stored.</li>
+<li>Nothing is sold or shared.</li></ul>
+<h2>Disconnecting</h2>
+<p>Press <b>Disconnect</b> in the Ledger's Settings, or remove Alien Farmers Ledger from your connected apps in Upland. Either one deletes the stored token. Unused connections are deleted after 180 days.</p>
+<h2>Contact</h2>
+<p>UndeadAlien in Upland, or <a href="https://github.com/UndeadAlien/alien-farmers-ledger/issues">open an issue on GitHub</a>.</p>
+<p><a href="./">← Back to the Ledger</a></p>
+</main></body></html>

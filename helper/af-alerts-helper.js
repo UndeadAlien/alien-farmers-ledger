@@ -20,6 +20,8 @@
 // that many public shop pages in one call (cached 10 minutes), so the owner's Ledger can walk every shop number in a few
 // hundred calls. The list it builds is kept here (POST /dir/save from the owner's Ledger, at most every 10 minutes; GET /dir
 // for his other devices and visitors) so his phone and the public site share it.
+// v69: Upland's official Developers API, read-only (scope readassets): any player connects with a code and the Ledger
+// shows their profile, balances, NFTs and properties (/up/connect, /upland-hook, /up/me, /up/data, /up/disconnect).
 // v62: the Ledger's Game link: Upland now answers only the game, so a snippet in your play.upland.me tab reads shelves and
 // mint cost and hands them to the Ledger; when the two tabs can't talk directly it posts them here (POST /live, with a link
 // key that can do nothing else) and the Ledger reads GET /live. Kept in the edge cache, saved to KV at most every 10 minutes.
@@ -27,7 +29,7 @@
 // v59: it also keeps your live mint quote (so every device and visitor sees it within a minute), sends a push when
 // one of your new nurseries opens, and takes alert settings from whichever of your devices changed them last.
 
-const VERSION = 66;
+const VERSION = 69;
 const CHAIN = "https://chain-history.upland.me";
 const GAME = "playuplandme";
 const CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "content-type,x-af-key,x-af-meta"};
@@ -388,6 +390,72 @@ export default {
         const hit = await caches.default.match(new Request("https://af.internal/live"));
         const v = hit ? await hit.text() : await env.AF.get("live");
         return new Response(v || "{}", {headers: {...CORS, "Content-Type": "application/json", "Cache-Control": "no-store"}});
+      }
+      // ---------- v69: Upland's official Developers API (read-only: scope readassets) ----------
+      // Any Upland player can connect: POST /up/connect makes a code with Upland (/auth/otp/init, the app's id and secret);
+      // the player enters it in Upland; Upland posts AuthenticationSuccess with an access token to /upland-hook (checked
+      // with the custom header); GET /up/me and /up/data?what=profile|balances|nfts|properties read that player's data
+      // with the token. The token never leaves this helper: browsers hold only a random session id. Nothing here can list,
+      // sell, transfer or change anything in Upland. Secrets (Cloudflare → Settings → Variables and Secrets):
+      // UPLAND_APP_ID, UPLAND_APP_SECRET, UPLAND_HOOK_KEY (the value of the x-af-hook header set in the Developers Portal).
+      if (p === "/upland-hook" && req.method === "POST") {
+        if (!env.UPLAND_HOOK_KEY || req.headers.get("x-af-hook") !== env.UPLAND_HOOK_KEY) return json({error: "not allowed"}, 403);
+        const ev = await req.json().catch(() => null), type = ev && ev.type, d = (ev && ev.data) || {};
+        const uid = String(d.userId || d.uplandUserId || "").slice(0, 80), code = String(d.code || "").slice(0, 80);
+        if (type === "AuthenticationSuccess" && code && d.accessToken) {
+          const sid = await env.AF.get("upp:" + code); if (!sid) return json({ok: true, ignored: "unknown code"});
+          await env.AF.put("ups:" + sid, JSON.stringify({uid, token: String(d.accessToken), at: Date.now()}), {expirationTtl: 180 * 86400});
+          const L = ((await env.AF.get("upu:" + uid, "json")) || []).filter(x => x !== sid).concat(sid).slice(-10);
+          await env.AF.put("upu:" + uid, JSON.stringify(L)); await env.AF.delete("upp:" + code);
+          return json({ok: true});
+        }
+        if (type === "AuthenticationFailure" && code) { const sid = await env.AF.get("upp:" + code); if (sid) await env.AF.put("upf:" + sid, "1", {expirationTtl: 3600}); return json({ok: true}); }
+        if (type === "UserDisconnectedApplication" && uid) {
+          for (const sid of (await env.AF.get("upu:" + uid, "json")) || []) await env.AF.delete("ups:" + sid);
+          await env.AF.delete("upu:" + uid); return json({ok: true});
+        }
+        return json({ok: true, ignored: type || "no type"});   // escrow and tournament events: this app uses none
+      }
+      if (p.startsWith("/up/")) {
+        const DEV = "https://api.prod.upland.me/developers-api", sidOk = s => /^[a-z0-9]{32}$/.test(s || "");
+        if (p === "/up/connect" && req.method === "POST") {
+          if (!env.UPLAND_APP_ID || !env.UPLAND_APP_SECRET) return json({error: "This helper isn't set up for Upland sign-in yet."}, 503);
+          const ip = req.headers.get("cf-connecting-ip") || "?", rk = new Request("https://af.internal/uprate/" + ip), seen = await caches.default.match(rk);
+          const n = seen ? +(await seen.text()) || 0 : 0; if (n >= 5) return json({error: "Too many codes from here. Try again in 10 minutes."}, 429);
+          await caches.default.put(rk, new Response(String(n + 1), {headers: {"Cache-Control": "max-age=600"}}));
+          const auth = "Basic " + btoa(env.UPLAND_APP_ID + ":" + env.UPLAND_APP_SECRET);
+          let r = await fetch(DEV + "/auth/otp/init", {method: "POST", headers: {Authorization: auth, Accept: "application/json"}});
+          if (r.status === 404 || r.status === 405) r = await fetch(DEV + "/auth/otp/init", {headers: {Authorization: auth, Accept: "application/json"}});
+          const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch {}
+          const code = j && (j.code || (j.data && j.data.code) || j.otp);
+          if (!r.ok || !code) return json({error: `Upland didn't give a code (${r.status}).`, upland: t.slice(0, 300)}, 502);
+          const sid = rid(32), exp = j.expirationDate || j.expiresAt || (j.data && j.data.expirationDate) || null;
+          await env.AF.put("upp:" + code, sid, {expirationTtl: 1800});
+          return json({ok: true, code: String(code), sid, expires: exp});
+        }
+        const sid = url.searchParams.get("sid"); if (!sidOk(sid)) return json({error: "bad session"}, 400);
+        if (p === "/up/disconnect" && req.method === "POST") {
+          const s = await env.AF.get("ups:" + sid, "json"); await env.AF.delete("ups:" + sid);
+          if (s && s.uid) await env.AF.put("upu:" + s.uid, JSON.stringify(((await env.AF.get("upu:" + s.uid, "json")) || []).filter(x => x !== sid)));
+          return json({ok: true});
+        }
+        const s = await env.AF.get("ups:" + sid, "json");
+        if (!s) return json({ok: true, connected: false, failed: !!(await env.AF.get("upf:" + sid))});
+        const what = p === "/up/me" ? "profile" : url.searchParams.get("what");
+        const PATH = {profile: "/user/profile", balances: "/user/balances", nfts: "/user/assets/nfts", properties: "/user/assets/properties"}[what];
+        if (!PATH) return json({error: "bad what"}, 400);
+        const page = Math.max(1, Math.min(500, Math.floor(+(url.searchParams.get("page") || 1)) || 1)), size = Math.max(1, Math.min(100, Math.floor(+(url.searchParams.get("size") || 100)) || 100));
+        const q = new URLSearchParams(); if (what === "nfts" || what === "properties") { q.set("currentPage", page); q.set("pageSize", size); }
+        for (const k of ["category"]) { const v = url.searchParams.get(k); if (v && /^[\w-]{1,40}$/.test(v)) q.set(k, v); }
+        const src = DEV + PATH + (String(q) ? "?" + q : ""), ck = new Request("https://af.internal/up/" + sid + PATH + "?" + q);
+        const hit = await caches.default.match(ck); if (hit) return new Response(await hit.text(), {headers: {...CORS, "Content-Type": "application/json", "Cache-Control": "no-store"}});
+        const r = await fetch(src, {headers: {Authorization: "Bearer " + s.token, Accept: "application/json"}});
+        if (r.status === 401 || r.status === 403) { await env.AF.delete("ups:" + sid); return json({ok: true, connected: false, expired: true}); }
+        const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch {}
+        if (!r.ok) return json({error: `Upland answered ${r.status}`, upland: t.slice(0, 300)}, 502);
+        const out = JSON.stringify({ok: true, connected: true, uid: s.uid, what, page, at: Date.now(), data: j});
+        await caches.default.put(ck, new Response(out, {headers: {"Content-Type": "application/json", "Cache-Control": "max-age=60"}}));
+        return new Response(out, {headers: {...CORS, "Content-Type": "application/json", "Cache-Control": "no-store"}});
       }
       const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
       if (p === "/live") {   // from the snippet in your game tab, with its link key (not your owner code)
