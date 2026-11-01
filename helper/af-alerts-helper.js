@@ -20,6 +20,7 @@
 // that many public shop pages in one call (cached 10 minutes), so the owner's Ledger can walk every shop number in a few
 // hundred calls. The list it builds is kept here (POST /dir/save from the owner's Ledger, at most every 10 minutes; GET /dir
 // for his other devices and visitors) so his phone and the public site share it.
+// v70: the Developers Portal's Test Webhook gets 200.
 // v69: Upland's official Developers API, read-only (scope readassets): any player connects with a code and the Ledger
 // shows their profile, balances, NFTs and properties (/up/connect, /upland-hook, /up/me, /up/data, /up/disconnect).
 // v62: the Ledger's Game link: Upland now answers only the game, so a snippet in your play.upland.me tab reads shelves and
@@ -29,7 +30,7 @@
 // v59: it also keeps your live mint quote (so every device and visitor sees it within a minute), sends a push when
 // one of your new nurseries opens, and takes alert settings from whichever of your devices changed them last.
 
-const VERSION = 69;
+const VERSION = 70;
 const CHAIN = "https://chain-history.upland.me";
 const GAME = "playuplandme";
 const CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "content-type,x-af-key,x-af-meta"};
@@ -402,7 +403,7 @@ export default {
         const ev = await req.json().catch(() => null), type = ev && ev.type, d = (ev && ev.data) || {};
         // the Developers Portal's "Test Webhook" posts {id, message: "Upland services validation call"} with no type and
         // without the custom header: answer 200 (it carries nothing and changes nothing here)
-        if (ev && !type && /validation/i.test(String(ev.message || ""))) return json({ok: true, validated: true});
+        if (!type) return json({ok: true, validated: true});   // v70: any call without an event type (the portal test) gets 200; it can do nothing
         if (!env.UPLAND_HOOK_KEY || req.headers.get("x-af-hook") !== env.UPLAND_HOOK_KEY) return json({error: "not allowed"}, 403);
         const uid = String(d.userId || d.uplandUserId || "").slice(0, 80), code = String(d.code || "").slice(0, 80);
         if (type === "AuthenticationSuccess" && code && d.accessToken) {
