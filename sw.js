@@ -1,5 +1,5 @@
 // Alien Farmers Ledger service worker: makes the Ledger installable, opens instantly, and shows phone alerts.
-const V = "af-67";
+const V = "af-68";
 // v63: pages of the site. index.html and nursery3d.html (the 3D tour / Build mode page) open from the network first and
 // fall back to their last copy offline; the 3D page's modules (lot3d.js, builder.js, sheet.js) the same way.
 // v66: the Nursery Aligner page (aligner.html) and its files (aligner/math.js, place.js, place2.js, ui.js, example.json) too.

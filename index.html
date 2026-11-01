@@ -245,6 +245,7 @@ tr.you td{background:var(--leaf-soft)}
 .tag.warn{background:var(--daisy-soft);color:var(--daisy);border-color:transparent}
 .tag.hot{background:var(--hot-soft);color:var(--hot);border-color:transparent}
 .tag.good{background:var(--leaf-soft);color:var(--leaf);border-color:transparent}
+.sh-check{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .vd{display:inline-block;padding:3px 9px;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap}
 .vd.good,.vd.ok{background:var(--leaf-soft);color:var(--leaf)} .vd.mid{background:var(--raised);color:var(--ink);border:1px solid var(--line-2)}
 .vd.high{background:var(--hot-soft);color:var(--hot)} .vd.low{background:var(--daisy-soft);color:var(--daisy)}
@@ -2130,6 +2131,7 @@ body.pub-view #nsRefresh{display:none}
             <h2>On the shelves</h2>
             <div class="filters tools"><input class="search" type="search" data-search="shTable" placeholder="Search seeds" aria-label="Search seeds" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
           </div>
+          <p class="note sh-check" id="shCheck" hidden></p>
           <div class="scroll"><table id="shTable"></table></div>
           <p class="note" id="shFoot" style="margin:10px 0 0"></p>
         </section>
@@ -4311,7 +4313,6 @@ const SITE = (() => {
     renderMarket(D); renderTiming(D); renderPlayers(D); renderMissing();
     if (!S.data) { applySearchAll(); return; }
     renderRestock(D);
-    planPostSoon();   // v67: the game extension
     renderSummary(D); renderInventory(D); renderShops(); renderSales(D); renderCommission(D);
     if (onView("next")) renderPlanner();
     if (learnedDirty) saveLearned();
@@ -4726,46 +4727,8 @@ const SITE = (() => {
     return X ? {cities: X.cities, byCity: X.byCity, onShelf: X.onShelf, w: X.w, why: X.why} : {cities: [], byCity: new Map(), onShelf: new Map(), w: () => 1, why: () => ""};
   }
   window.__afRestock = {plantHold: () => plantHold(), citySplit, holdSet};   // for tests and other tabs' debugging (v66:restock)
-  // ---------- v67: the Alien Farmers game extension ----------
-  // The extension (in the play.upland.me tab) shows this Fill shop plan next to the game. Its helper script on this page asks
-  // with window.postMessage({af: "plan-req"}) and gets {af: "plan", plan} back, and a fresh copy every time the plan changes.
-  // Nothing leaves the browser and nothing here talks to Upland. planPack() is plain data in, plain data out (tested on its own).
-  function planPack(R, shops, o){
-    const up = {}, keys = {};   // Ledger seed key → Upland's name for it, and Upland's names → key (for matching shelf rows)
-    for (const s of shops) for (const it of s.items || []) if (it.n && it.k) { keys[it.n] = it.k; if (!up[it.k]) up[it.k] = it.n; }
-    for (const s of shops) for (const g of (s.gen && s.gen.pool) || []) if (g.n && g.k) { keys[g.n] = g.k; if (!up[g.k]) up[g.k] = g.n; }
-    const price = k => { const v = o.price(k); return v > 0 ? Math.round(v) : null; };
-    const prices = {}; for (const x of R.plan || []) { const v = price(x.k); if (v) prices[x.k] = v; }
-    for (const s of shops) for (const it of s.items || []) if (it.k && !(it.k in prices)) { const v = price(it.k); if (v) prices[it.k] = v; }
-    const fill = (R.groups || []).filter(g => g.sid != null && g.steps.length).map(g => ({sid: +g.sid,
-      steps: g.steps.map(st => ({k: st.k, name: o.nice(st.k), up: up[st.k] || "", n: st.n, price: price(st.k), wallet: st.x ? st.x.held : null}))}));
-    const pulls = (R.pulls || []).map(p => ({sid: +p.sid, k: p.k, name: o.nice(p.k), up: up[p.k] || "", n: p.n, old: p.old || 0, usd: p.usd || 0,
-      for: [...(p.for instanceof Map ? p.for.keys() : Object.keys(p.for || {}))].map(o.nice)}));
-    return {v: 1, account: o.account, user: o.user, view: o.view,
-      shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
-      fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0)};
-  }
-  const XB = {sig: "", plan: null, t: 0};
-  function planNow(){
-    const R = lastD && lastD.plan, h = S.data && S.data.hist; if (!h || !R || !R.groups) return null;
-    if (!h.to || !Object.keys(h.items || {}).length) return null;   // the chain hasn't loaded: an empty plan would wipe the game panel's last good one
-    return planPack(R, shelfSource(), {price: k => { const lp = fillPrice({k, price: listAtOf(k)}); return lp && lp.p; }, nice, label: shopLabel,
-      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner"});
-  }
-  function planPost(force){
-    let plan = null; try { plan = planNow(); } catch (e) { console.warn("extension plan", e); }
-    const sig = plan ? JSON.stringify(plan) : "";
-    if (!force && (!plan || sig === XB.sig)) return;
-    if (plan) { XB.sig = sig; XB.plan = plan; XB.at = Date.now(); }
-    window.postMessage({af: "plan", plan: XB.plan ? {...XB.plan, at: XB.at} : null, why: XB.plan ? "" : S.data ? "no plan yet" : "loading"}, location.origin);
-  }
-  const planPostSoon = () => { clearTimeout(XB.t); XB.t = setTimeout(() => planPost(false), 400); };
-  window.addEventListener("message", e => {
-    if (e.source !== window || !e.data || e.data.af !== "plan-req") return;
-    if (e.data.refresh && !PV) { const b = $("refresh"); if (b) b.click(); shelfReal(true); }
-    planPost(true);
-  });
-  window.__afPlan = {pack: planPack, now: () => planNow()};   // for tests
+  // v68: the v67 bridge to the game extension is gone. Upland allows only tools that read information, not tools that
+  //   act in the game (their reply, Nov 1 2026), so the extension was retired and its shelf checks live on Shelves below.
   function restockPlan(D){
     const now = Date.now(), d14 = now - 14 * DAY, d7 = now - 7 * DAY, h = S.data.hist;
     const seedSel = k => !S.seeds.size || S.seeds.has(k);
@@ -6746,6 +6709,25 @@ const SITE = (() => {
   const listAtOf = k => { const D = lastD; const p = D && D.rows && D.rows.get(k), lp = p ? null : listPrice(k); return (p && p.price) || (lp && lp.p) || (D && D.mstats && D.mstats.get(k) && D.mstats.get(k).now) || null; };
   const BY_LABEL = {read: "shelf read", plan: "Fill shop", ledger: "placed by the Ledger"};
   // ---------- Restock → Shelves: your listings per nursery, from the chain ----------
+  // v68: shelf checks for one row (one seed in one nursery). Only your own listings. Past expiry: Upland ends a listing after
+  // 7 days (the shop page's autoExpirationTimeInDays), counted from when it was approved. Prices only from real shelf reads.
+  const SHELF_EXP_DAYS = 7;
+  const CHECKS = [["exp", "hot", "past expiry"], ["usd", "hot", "in USD"], ["under", "warn", "under List at"], ["over", "warn", "over List at"]];
+  function shelfChecks(e, L0){
+    const c = {exp: 0, usd: 0, under: 0, over: 0, why: {}}, mine = e.list.filter(x => x.me && (!x.st || x.st === "ON_SALE"));
+    const L = L0 !== undefined ? L0 : fillPrice({k: e.k, price: listAtOf(e.k)}).p, cut = Date.now() - SHELF_EXP_DAYS * DAY;
+    for (const x of mine) {
+      if (x.at && x.at < cut) c.exp++;
+      if (x.cur && String(x.cur).toUpperCase() !== "UPX") { c.usd++; continue; }
+      if (L && x.p > 0) { if (x.p < .8 * L) c.under++; else if (x.p > 1.3 * L) c.over++; }
+    }
+    if (c.exp) c.why.exp = `Listed more than ${SHELF_EXP_DAYS} days ago: Upland has ended ${c.exp === 1 ? "this listing" : "these listings"}. Relist in the game.`;
+    if (c.usd) c.why.usd = "Priced in USD, not UPX. Fix the price in the game.";
+    if (c.under) c.why.under = `Asking under 80% of List at (${int(L)} UPX).`;
+    if (c.over) c.why.over = `Asking over 130% of List at (${int(L)} UPX).`;
+    return c;
+  }
+  window.__afShelf = {checks: shelfChecks};   // for tests
   function renderShops(){
     keyShops();
     if (!$("view-shelves")) return;
@@ -6766,14 +6748,25 @@ const SITE = (() => {
     const pick = ok.filter(s => SH.sel === "all" || String(s.id) === SH.sel), multi = pick.length > 1;
     const g = new Map();
     for (const sh of pick) for (const x of sh.items) { const key = x.k + "|" + sh.id; const e = g.get(key) || g.set(key, {k: x.k, shop: sh, list: []}).get(key); e.list.push(x); }
-    const rows = [...g.values()].map(e => ({...e, n: e.list.length, oldest: Math.min(...e.list.map(x => x.at || Infinity)), guess: e.list.filter(x => x.by === "ledger").length}))
+    const rows0 = [...g.values()].map(e => ({...e, n: e.list.length, oldest: Math.min(...e.list.map(x => x.at || Infinity)), guess: e.list.filter(x => x.by === "ledger").length, ck: shelfChecks(e)}))
       .sort((a, b) => nice(a.k).localeCompare(nice(b.k)) || a.shop.id - b.shop.id);
+    // v68: what to fix by hand in the game (these were the game extension's flags; Upland allows reading, not acting)
+    const tot = {exp: 0, usd: 0, under: 0, over: 0}; for (const e of rows0) for (const f in tot) tot[f] += e.ck[f];
+    const nFix = tot.exp + tot.usd + tot.under + tot.over, need = e => e.ck.exp + e.ck.usd + e.ck.under + e.ck.over > 0;
+    if (!nFix) SH.fixOnly = false;
+    const rows = SH.fixOnly ? rows0.filter(need) : rows0;
+    $("shCheck").hidden = !rows0.length;
+    $("shCheck").innerHTML = nFix ? `<b>To fix in the game</b> ${CHECKS.filter(([f]) => tot[f]).map(([f, c, l]) => `<span class="tag ${c}">${int(tot[f])} ${l}</span>`).join(" ")}
+        <button type="button" class="linkbtn" data-shfix>${SH.fixOnly ? "Show every seed" : "Show only these"}</button>
+        <span class="muted">· relist, reprice or pull them yourself in Upland</span>`
+      : `<span class="tag good">All good</span> <span class="muted">Nothing past ${SHELF_EXP_DAYS} days, nothing in USD, every price near its List at</span>`;
     table($("shTable"), [
       {h: "Seed", f: e => seedCell(e.k) + fruitTag(e.k)},
       ...(multi ? [{h: "Nursery", f: e => shopBadge(e.shop.id)}] : []),
       {h: "Listed", cls: "r num", f: e => int(e.n)},
       {h: "List at", cls: "r num hm", f: e => { const v = fillPrice({k: e.k, price: listAtOf(e.k)}).p; return v ? int(v) : "–"; }},   // v66:restock: the pricing model's one price when there
       {h: "Oldest", cls: "r num hm", f: e => e.oldest < Infinity ? `<span class="${e.oldest < Date.now() - 14 * DAY ? "warn" : "muted"}">${daysTxt(e.oldest)}</span>` : "–"},
+      {h: "Check", f: e => CHECKS.filter(([f]) => e.ck[f]).map(([f, c, l]) => `<span class="tag ${c}" title="${esc(e.ck.why[f] || "")}">${int(e.ck[f])} ${l}</span>`).join(" ") || `<span class="muted">–</span>`},
       {h: "", cls: "hm", f: e => e.guess ? `<span class="muted" title="Fill shop didn't place ${e.guess === 1 ? "this one" : "these"}, so the Ledger put ${e.guess === 1 ? "it" : "them"} in the nursery with the most room">${int(e.guess)} placed by the Ledger</span>` : ""}
     ], rows, S.data ? "Nothing listed" : "Press Refresh", e => seedRow(e.k));
     const guessN = sum(ok, s => s.items.filter(x => x.by === "ledger").length);
@@ -6793,6 +6786,7 @@ const SITE = (() => {
   document.addEventListener("click", e => {
     const t = e.target;
     if (t.closest("#shPoolBtn")) return openShopPool();
+    if (t.closest("[data-shfix]")) { SH.fixOnly = !SH.fixOnly; return renderShops(); }
     const b = t.closest("[data-shsel]"); if (b) { SH.sel = b.dataset.shsel; store.set("af:shSel", SH.sel); renderShops(); }
   });
   document.addEventListener("change", e => { if (e.target && e.target.id === "shSelect") { SH.sel = e.target.value; store.set("af:shSel", SH.sel); renderShops(); } });
