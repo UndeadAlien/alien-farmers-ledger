@@ -8098,7 +8098,7 @@ const SITE = (() => {
           ${N ? `<span class="tag">${int(N.items.length)} NFTs</span>` : ""}${R ? `<span class="tag">${int(R.items.length)} propert${R.items.length === 1 ? "y" : "ies"}</span>` : ""}</div>
         ${err}<div class="sheet-btns"><button class="ghost" type="button" data-up="nfts">See my NFTs</button><button class="ghost" type="button" data-up="reload">Re-read</button><button class="ghost" type="button" data-up="raw">Copy Upland's reply</button><button class="ghost" type="button" data-up="off">Disconnect</button></div>${ro}<p class="note"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>`;
     } else if (UP.code && Date.now() < UP.code.exp) {
-      el.innerHTML = `<p style="margin:0">In Upland, enter this code to connect <b>Alien Farmers Ledger</b>:</p><div class="up-code">${esc(UP.code.code)}</div>
+      el.innerHTML = `<p style="margin:0">In Upland, open the <b>⋮ menu → Settings → Third-party Applications → Connect New App</b> and enter this code to connect <b>Alien Farmers Ledger</b>:</p><div class="up-code">${esc(UP.code.code)}</div>
         <p class="note">Waiting for Upland… this page notices on its own. The code works for ${Math.max(1, Math.round((UP.code.exp - Date.now()) / 60e3))} more minutes.</p>${err}
         <div class="sheet-btns"><button class="ghost" type="button" data-up="copy">Copy code</button><button class="ghost" type="button" data-up="off">Cancel</button></div>${ro}`;
     } else {
