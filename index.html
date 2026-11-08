@@ -6759,7 +6759,8 @@ const SITE = (() => {
   // v68: shelf checks for one row (one seed in one nursery). Only your own listings. Past expiry: Upland ends a listing after
   // 7 days (the shop page's autoExpirationTimeInDays), counted from when it was approved. Prices only from real shelf reads.
   const SHELF_EXP_DAYS = 7;
-  const CHECKS = [["exp", "hot", "past expiry"], ["usd", "hot", "in USD"], ["under", "warn", "under List at"], ["over", "warn", "over List at"]];
+  // v72: past expiry is left out: expired listings still sell (Alien, Nov 8 2026). Only a wrong price needs fixing.
+  const CHECKS = [["usd", "hot", "in USD"], ["under", "warn", "under List at"], ["over", "warn", "over List at"]];
   function shelfChecks(e, L0){
     const c = {exp: 0, usd: 0, under: 0, over: 0, why: {}}, mine = e.list.filter(x => x.me && (!x.st || x.st === "ON_SALE"));
     const L = L0 !== undefined ? L0 : fillPrice({k: e.k, price: listAtOf(e.k)}).p, cut = Date.now() - SHELF_EXP_DAYS * DAY;
@@ -6799,14 +6800,14 @@ const SITE = (() => {
       .sort((a, b) => nice(a.k).localeCompare(nice(b.k)) || a.shop.id - b.shop.id);
     // v68: what to fix by hand in the game (these were the game extension's flags; Upland allows reading, not acting)
     const tot = {exp: 0, usd: 0, under: 0, over: 0}; for (const e of rows0) for (const f in tot) tot[f] += e.ck[f];
-    const nFix = tot.exp + tot.usd + tot.under + tot.over, need = e => e.ck.exp + e.ck.usd + e.ck.under + e.ck.over > 0;
+    const nFix = tot.usd + tot.under + tot.over, need = e => e.ck.usd + e.ck.under + e.ck.over > 0;
     if (!nFix) SH.fixOnly = false;
     const rows = SH.fixOnly ? rows0.filter(need) : rows0;
     $("shCheck").hidden = !rows0.length;
     $("shCheck").innerHTML = nFix ? `<b>To fix in the game</b> ${CHECKS.filter(([f]) => tot[f]).map(([f, c, l]) => `<span class="tag ${c}">${int(tot[f])} ${l}</span>`).join(" ")}
         <button type="button" class="linkbtn" data-shfix>${SH.fixOnly ? "Show every seed" : "Show only these"}</button>
-        <span class="muted">· relist, reprice or pull them yourself in Upland</span>`
-      : `<span class="tag good">All good</span> <span class="muted">Nothing past ${SHELF_EXP_DAYS} days, nothing in USD, every price near its List at</span>`;
+        <span class="muted">· reprice them at List at</span>`
+      : `<span class="tag good">All good</span> <span class="muted">Nothing in USD, every price near its List at</span>`;
     table($("shTable"), [
       {h: "Seed", f: e => seedCell(e.k) + fruitTag(e.k)},
       ...(multi ? [{h: "Nursery", f: e => shopBadge(e.shop.id)}] : []),
