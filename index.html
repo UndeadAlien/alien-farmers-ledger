@@ -508,6 +508,8 @@ input,select{font-size:13px;padding:6px 9px;border-radius:8px}
 /* settings drawer (v59) */
 .set-panel{width:min(480px,100%)}
 .set-sec{display:grid;gap:12px}
+.plant-list{display:grid;gap:4px;max-height:340px;overflow:auto}.plant-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.plant-row select,.plant-row input{font:inherit;font-size:13px;padding:4px 6px;border-radius:8px;border:1px solid var(--line-2);background:var(--raised);color:inherit}.plant-row input:disabled{opacity:.35}
 .up-code{font:700 30px var(--mono);letter-spacing:.12em;padding:10px 14px;border-radius:12px;background:var(--raised);border:1px solid var(--line-2);text-align:center;user-select:all}
 #upBox{display:grid;gap:10px}#upBox .note{margin:0}#upBox .sheet-btns{margin:0}
 .up-stats{display:flex;flex-wrap:wrap;gap:6px}.up-list{display:grid;gap:6px}.up-list .up-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:4px 0}
@@ -2359,6 +2361,11 @@ body.pub-view #nsRefresh{display:none}
       <div class="set-row3"><label for="coverDays">Days of stock in shop<input id="coverDays" type="number" step="1" min="1" value="7"></label></div>
       <p class="note" style="margin:8px 0 0">USD comes from Sparklet's market price and Upland's store rate (1,000 UPX = $1). Nothing to type.</p>
     </section>
+    <section class="panel set-sec set-own" id="setPlant">
+      <h2>Plantable seeds</h2>
+      <p class="note">Upland turns planting on one seed at a time. For 21 days after a seed becomes plantable it's priced from the sales since that day, or 15% higher until there are 3. Add a seed here when Upland announces it.</p>
+      <div id="plantList" class="plant-list"></div>
+    </section>
     <section class="panel set-sec" id="setUpland">
       <h2>Your Upland account</h2>
       <div id="upBox"></div>
@@ -3431,6 +3438,42 @@ const SITE = (() => {
   //   2. Otherwise, with 5+ sales in the last 48 hours, those sales set value, range and others' prices.
   //   3. Otherwise the 14-day recent-weighted value stands.
   // Recent sales are weighted with a 1-day half-life. The 48h trend nudge is skipped when 1 or 2 applies (already counted).
+  // ---------- v74: plantable seeds and new releases ----------
+  // Plantable: Upland turns planting on per seed (announced on X and its news). Pre-filled with what's public: the launch
+  // seeds since Life went live (Blossom Season, spring 2026; exact date not published, so May 1 stands in), Birds of Paradise
+  // since Aug 20, 2026; Violets "not ready to plant" when last announced. Edit in Settings → Plantable seeds (af:plantable).
+  // Pricing: for 21 days after a seed becomes plantable, its value comes from sales since that day (3+), otherwise +15%.
+  // New release: a seed first seen on the market (first sale or first generated) in the last 10 days. Its value comes
+  // from the last 3 days of sales (3+), it is never pushed down toward others' cheaper asks, and its price isn't held.
+  const PLANT_DEFAULT = Object.fromEntries([...["Maple","Oil Palm","Pine","Magnolia","Weeping Willow","Boxwood","Arborvitae","Lawn Grass","Red Rose","Pink Rose",
+    "White Rose","Yellow Rose","Red Tulip","White Tulip","Purple Tulip","Orange Daisy","Lavender","Sunflower"].map(n => [n, {s: "yes", d: "2026-05-01"}]),
+    ["Bird Of Paradise", {s: "yes", d: "2026-08-20"}], ["Violet", {s: "no", d: ""}]]);
+  const plantKey = k => lc(k).replace(/\s+(tree|bush|plant|shrub)$/, "").replace(/^birds\b/, "bird").replace(/s$/, "");
+  const PLANTX = {m: null};
+  function plantMap(){
+    if (PLANTX.m) return PLANTX.m;
+    const m = new Map(); for (const [n, v] of Object.entries(PLANT_DEFAULT)) m.set(plantKey(n), {...v, name: n, def: true});
+    for (const [n, v] of Object.entries(store.get("af:plantable", {}) || {})) m.set(plantKey(n), {...v, name: n, def: false});
+    return PLANTX.m = m;
+  }
+  function plantOf(k){ const e = plantMap().get(plantKey(k)); if (!e) return null;
+    const ms = e.s === "yes" && e.d ? Date.parse(e.d + "T00:00:00Z") : null;
+    return {s: e.s, since: ms, recent: ms != null && Date.now() - ms < 21 * DAY && Date.now() >= ms}; }
+  const NEW_DAYS = 10;
+  window.__afV74 = {plantOf, plantKey, seedWindows: (...a) => seedWindows(...a), isNewSeed: (...a) => isNewSeed(...a), rarityRank: k => rarityRank(k)};   // for tests
+  function firstSeen(){
+    const f = new Map(), from = market.from ? utc(market.from).getTime() : 0;
+    for (const s of market.sales || []) { const k = lc(s.n), ms = utc(s.t).getTime(); if (!f.has(k) || ms < f.get(k)) f.set(k, ms); }
+    for (const [day, m] of Object.entries(market.mints || {})) { const ms = Date.parse(day + "T00:00:00Z"); for (const k of Object.keys(m)) if (!f.has(k) || ms < f.get(k)) f.set(k, ms); }
+    return {f, from};
+  }
+  const isNewSeed = (k, fs, now) => { const t = fs.f.get(k); return t != null && t >= fs.from + DAY && t >= now - NEW_DAYS * DAY; };
+  function seedWindows(k, fs, now){
+    const out = [], pl = plantOf(k);
+    if (pl && pl.recent) out.push({since: pl.since, min: 3, why: `since it became plantable (${fmtTime(toISO(pl.since))})`, short: "Since plantable", plant: true});
+    if (isNewSeed(k, fs, now)) out.push({since: now - 3 * DAY, min: 3, why: "in the last 3 days (a new release)", short: "New release", isNew: true});
+    return out;
+  }
   const RECENT_MIN = 5;
   function genRegime(){
     const sm = GEN.samples; if (sm.length < 2) return null;
@@ -3448,11 +3491,11 @@ const SITE = (() => {
     if (m.usd) return;
     for (const w of wins) {
       const rec = kept.filter(x => x.ms >= w.since), n = rec.length;
-      const full = n >= RECENT_MIN, partial = !full && w.regime && n >= 2;
+      const full = n >= (w.min || RECENT_MIN), partial = !full && w.regime && n >= 2;
       if (!full && !partial) continue;
       const ps = rec.map(x => x.p).sort((a, b) => a - b), V = weightedMedian(rec, now, DAY), before = m.now;
       m.now = full ? V : before + (V - before) * (n / RECENT_MIN);
-      m.recent = {n, full, why: w.why, short: w.short, regime: !!w.regime, before, value: V, change: m.now / before - 1};
+      m.recent = {n, full, why: w.why, short: w.short, regime: !!w.regime, plant: !!w.plant, isNew: !!w.isNew, before, value: V, change: m.now / before - 1};
       if (full) { m.med = quantile(ps, .5); m.p25 = quantile(ps, .25); m.p75 = quantile(ps, .75); m.p90 = Math.max(quantile(ps, .9), m.now);
         m.oth14 = m.oth; if (m.basis === "others") m.oth = ps; }
       return;
@@ -3474,7 +3517,7 @@ const SITE = (() => {
     }
     const supply = new Map();
     for (const [day, m] of Object.entries(market.mints || {})) if (day >= sinceDay) for (const [k, c] of Object.entries(m)) supply.set(k, (supply.get(k) || 0) + c);
-    const out = new Map(), win = recentWindows(now);
+    const out = new Map(), win = recentWindows(now), fs = firstSeen();
     for (const e of by.values()) {
       const {kept: keptAll, out: outl} = splitOutliers(e.list);
       const others = me ? keptAll.filter(x => x.s !== me) : keptAll;
@@ -3493,7 +3536,8 @@ const SITE = (() => {
         perDay: n / MKT_DAYS, mints, absorb: mints ? n / mints : null, low: kept.length < MIN_SALES, usd: isUsd(e.k),
         oth, ownN: keptAll.length - others.length, all: keptAll, mineP: me ? keptAll.filter(x => x.s === me).map(x => x.p).sort((a, b) => a - b) : [], basis: useOthers || keptAll.length === others.length ? "others" : "all",
         last: e.list.reduce((a, x) => !a || x.ms > a.ms ? x : a, null)});
-      const m = out.get(e.k); applyRecent(m, kept, now, win); m.conf = confidence(m);
+      const m = out.get(e.k); applyRecent(m, kept, now, [...seedWindows(e.k, fs, now), ...win]); m.conf = confidence(m);
+      m.isNew = isNewSeed(e.k, fs, now); m.plant = plantOf(e.k);   // v74
     }
     // Demand = sell-through: sales ÷ new seeds of that type generated in the same 7 days.
     // Ranked among seeds with enough sales and supply data: top quarter Hot, bottom quarter Slow.
@@ -3968,6 +4012,9 @@ const SITE = (() => {
     if (m.surge) { const s2 = Math.min(.10, .05 * (m.surge - 1)); c += s2; why.push(`Surge ${m.surge.toFixed(1)}× +${(s2 * 100).toFixed(0)}%`); }
     if (m.trend != null && Math.abs(m.trend) >= .02 && !(m.recent && m.recent.full)) { const tr = clamp(m.trend * .5, -.05, .05); c += tr; why.push(`48h trend ${tr >= 0 ? "+" : "−"}${Math.abs(tr * 100).toFixed(0)}%`); }
     if (c) { t *= 1 + c; steps.push(["Market now", t, why.join(", ")]); }
+    // v74: just plantable (the last 21 days) without 3 sales since: +15% until the market shows the new demand
+    if (m.plant && m.plant.recent && !(m.recent && m.recent.plant && m.recent.full)) { t *= 1.15; steps.push(["Just plantable", t, `+15%: plantable since ${fmtTime(toISO(m.plant.since))}, few sales since`]); }
+    const rare = rarityRank(k) >= 2, isNew = !!m.isNew;   // Rare / Ultra-rare undercut less; new releases aren't pushed down
     { const sf = shelfFactor(k, ctx); if (sf) { t *= 1 + sf.c; steps.push(["Your shelves", t, sf.why]); } }   // v66:pricing
     // Ceiling: the 90th percentile of market sales, or the highest price you sold at within a day of listing (last 14 days).
     const fast = (ctx.own.get(k) || []).filter(x => x.ms >= Date.now() - VAL_DAYS * DAY && x.days != null && x.days <= 1).map(x => x.p);
@@ -3985,22 +4032,22 @@ const SITE = (() => {
     const base = roundNice(t);
     if (ctx.ready) recs[k] = {p: base, t: prev && prev.p === base ? prev.t : Date.now()};
     // Competitive: the more of a seed you put out vs what buyers take, the closer to the cheap end (25th percentile) you list.
-    const pr = ctx.press ? ctx.press.get(k) : null, x = compSlide(pr, ctx.pmode);
+    const pr = ctx.press ? ctx.press.get(k) : null, x = isNew ? 0 : compSlide(pr, ctx.pmode) * (rare ? .5 : 1);
     const A = Math.max(m.p25 * (ctx.pmode === "fast" ? .97 : 1), (ctx.cost || 0) * 1.1);
     if (x > 0 && t > A) {
       t -= (t - A) * x;
       const share = pr == null ? "" : pr >= 1 ? `you'd list more than buyers take in ${ctx.days} days` : `you'd list ${Math.round(pr * 100)}% of what buyers take in ${ctx.days} days`;
       steps.push(["Competitive", t, [ctx.pmode === "fast" ? "Sell fast" : "", share].filter(Boolean).join(", ")]);
     }
-    if (ctx.pmode !== "top" && m.oth && m.oth.length >= MIN_SALES) {
-      const cap = Math.max(quantile(m.oth, ctx.pmode === "fast" ? .5 : .75), (ctx.cost || 0) * 1.1);
+    if (ctx.pmode !== "top" && !isNew && m.oth && m.oth.length >= MIN_SALES) {
+      const cap = Math.max(quantile(m.oth, ctx.pmode === "fast" ? .5 : rare ? .9 : .75), (ctx.cost || 0) * 1.1);
       if (t > cap * 1.005) { t = cap; steps.push(["Others' prices", t, ctx.pmode === "fast" ? "no higher than the middle of other players' sales" : "below the priciest quarter of other players' sales"]); }
     }
     // v66:pricing: what other nurseries ask for it right now (the cheapest few copies are what buyers see first)
     const ask = askStats(k, ctx), cf = costFloor(ctx);
     if (ask && ctx.pmode !== "top") {
-      const tgt = Math.max(ask.low * (ctx.pmode === "fast" ? 1 : 1.1), lo, cf), seen = `cheapest ${ask.cheap.map(int).join(", ")} of ${int(ask.n)} listed`;
-      if (t > tgt * 1.005) { t = tgt; steps.push(["Others asking", t, seen]); }
+      const tgt = Math.max(ask.low * (ctx.pmode === "fast" ? 1 : rare ? 1.15 : 1.1), lo, cf), seen = `cheapest ${ask.cheap.map(int).join(", ")} of ${int(ask.n)} listed`;
+      if (t > tgt * 1.005 && !isNew) { t = tgt; steps.push(["Others asking", t, seen]); }
       else if (ask.low > t * 1.15 && t * 1.03 <= hi) { t *= 1.03; steps.push(["Others asking", t, `+3%: ${seen}`]); }
     }
     if (cf && t < cf) { t = cf; steps.push(["Cost floor", t, `never below cost ${int(ctx.cost)} + 10%, after Upland's fee`]); }
@@ -4202,7 +4249,7 @@ const SITE = (() => {
     const p = D.rows && D.rows.get(k), m = D.mstats && D.mstats.get(k), mk = D.mk && D.mk(k);
     const model = p && p.model !== undefined ? p.model : mk ? modelPrice(k, mk, D.ctx).price : null;
     const x = {model, n: sh.n, at: mix.length ? mix[0].p : null, mix, floor: costFloor(D.ctx), recent: m && m.all ? m.all.filter(y => y.ms >= now - 2 * DAY).map(y => y.p) : [], ...(o || {})};
-    const r = plStep(PLK.lock[k], x, now);
+    const r = plStep(m && m.isNew ? undefined : PLK.lock[k], x, now);   // v74: a new release follows the market, no held price
     if (!PV && !(o && o.dry) && (o || (D.ctx && D.ctx.ready))) { PLK.lock[k] = r.L; plSaveSoon(); }
     return {...r.o, cur: "UPX", n: x.n, mixed: x.mix.length > 1 ? x.mix : null, model: x.model, floor: x.floor};
   }
@@ -4754,7 +4801,20 @@ const SITE = (() => {
     return {v: 1, account: o.account, user: o.user, view: o.view,
       shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
       fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0),
-      comp: o.comp || {}, floor: o.floor || 0};
+      comp: o.comp || {}, floor: o.floor || 0, scan: o.scan || [], meta: o.meta ? o.meta(Object.keys(prices)) : {}};
+  }
+  // v74: per seed, for the extension's live check: the typical range (lo = bottom of it, hi = the ceiling), new release,
+  // plantable, rarity rank. And every open nursery on Upland with its city (for the broad ask scan).
+  function planMeta(keys){
+    const out = {}, D = lastD; if (!D || !D.mstats) return out;
+    for (const k of keys) { const m = D.mstats.get(k); const pl = plantOf(k);
+      out[k] = {lo: m && m.p25 ? Math.round(m.p25 * .97) : null, hi: m ? Math.round(Math.max(m.p90 || 0, m.now || 0)) : null, new: !!(m && m.isNew),
+        plant: pl ? (pl.s === "yes" ? (pl.recent ? "new" : "yes") : pl.s) : "", rar: rarityRank(k)}; }
+    return out;
+  }
+  function planScan(){
+    let L = []; try { L = dirShops() || []; } catch { return []; }
+    return L.filter(s => !s.mine && s.active && s.city).map(s => ({id: +s.id, city: s.city, used: s.used || 0}));
   }
   // v73: for the game extension's live price check: each of your nurseries → the other open nurseries in its city
   // (most stocked first, up to 40), and the cost floor (never list below it)
@@ -4770,7 +4830,7 @@ const SITE = (() => {
     const R = lastD && lastD.plan, h = S.data && S.data.hist; if (!h || !R || !R.groups) return null;
     if (!h.to || !Object.keys(h.items || {}).length) return null;   // the chain hasn't loaded: an empty plan would wipe the game panel's last good one
     return planPack(R, shelfSource(), {price: k => { const lp = fillPrice({k, price: listAtOf(k)}); return lp && lp.p; }, nice, label: shopLabel,
-      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner", comp: planComp(), floor: costFloor(lastD.ctx)});
+      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner", comp: planComp(), floor: costFloor(lastD.ctx), scan: planScan(), meta: planMeta});
   }
   function planPost(force){
     let plan = null; try { plan = planNow(); } catch (e) { console.warn("extension plan", e); }
@@ -7939,6 +7999,9 @@ const SITE = (() => {
   const DEX_SEC = {Tree: ["Trees & Fruit", "tree"], Shrub: ["Shrubs & Foliage", "shrub"], Flower: ["Flowers & Ground Cover", "flower"], Other: ["Other", "other"]};
   const RAR = {"ultra-rare": ["Ultra-rare", 3], "ultrarare": ["Ultra-rare", 3], "rare": ["Rare", 2], "limited": ["Limited", 1], "standard": ["Standard", 0], "common": ["Common", 0]};
   const DEX = {sec: store.get("af:dexSec", "all"), own: store.get("af:dexOwn", "owned"), sort: store.get("af:dexSort", "do")};
+  // v74: 0 standard / unknown, 1 limited, 2 rare, 3 ultra-rare (from your nurseries' generate pools)
+  const RAR_RANK = {standard: 0, common: 0, limited: 1, rare: 2, "ultra-rare": 3, "ultra rare": 3, ultra: 3};
+  function rarityRank(k){ try { const f = seedFacts().get(k); return f && f.r ? (RAR_RANK[lc(f.r)] || 0) : 0; } catch { return 0; } }
   // what Upland says about each seed: rarity and which of your nurseries can generate it
   function seedFacts(){
     const f = new Map();
@@ -8167,7 +8230,24 @@ const SITE = (() => {
   });
   window.__afUp = {render: renderUp, nfts: upNfts, state: UP};   // for tests
   setTimeout(() => { renderUp(); if (UP.sid) upPoll(); }, 1500);
-  const openSettings = () => { renderSettings(); renderUp(); $("setSheet").hidden = false; $("setSheet").querySelector(".sheet-panel").scrollTop = 0; prefsPull(); };
+  // ---------- v74: Settings → Plantable seeds ----------
+  function renderPlant(){
+    const el = $("plantList"); if (!el) return;
+    const M = plantMap(), names = new Map();
+    for (const n of CATALOG) names.set(plantKey(n), n);
+    for (const e of M.values()) names.set(plantKey(e.name), e.name);
+    try { if (lastD && lastD.rows) for (const k of lastD.rows.keys()) if (!names.has(plantKey(k))) names.set(plantKey(k), nice(k)); } catch {}
+    el.innerHTML = [...names.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([pk, n]) => { const e = M.get(pk) || {s: "", d: ""};
+      return `<div class="plant-row" data-plant="${esc(n)}"><span>${esc(n)}</span><select aria-label="Is ${esc(n)} plantable?"><option value=""${!e.s ? " selected" : ""}>Not sure</option><option value="yes"${e.s === "yes" ? " selected" : ""}>Plantable</option><option value="no"${e.s === "no" ? " selected" : ""}>Not yet</option></select>
+        <input type="date" aria-label="Plantable since" value="${esc(e.d || "")}"${e.s === "yes" ? "" : " disabled"}></div>`; }).join("");
+  }
+  document.addEventListener("change", e => {
+    const row = e.target.closest && e.target.closest("[data-plant]"); if (!row) return;
+    const n = row.dataset.plant, sel = row.querySelector("select").value, d = row.querySelector("input").value;
+    const all = store.get("af:plantable", {}) || {}; all[n] = {s: sel, d: sel === "yes" ? (d || isoDate(new Date())) : ""}; store.set("af:plantable", all);
+    PLANTX.m = null; renderPlant(); render();
+  });
+  const openSettings = () => { renderSettings(); renderUp(); renderPlant(); $("setSheet").hidden = false; $("setSheet").querySelector(".sheet-panel").scrollTop = 0; prefsPull(); };
   document.addEventListener("click", e => {
     const t = e.target;
     if (t.closest("#setOpen")) { openSettings(); return; }
