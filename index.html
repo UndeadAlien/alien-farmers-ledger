@@ -1419,6 +1419,24 @@ button.primary.tb-ref.busy svg{animation:spin 1s linear infinite}
 .td-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:var(--s4,16px);align-items:start}
 .td-feedst{font-size:12px}
 .td-evs{display:grid;gap:2px}
+.lv-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:12px}
+.lv-seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--sunk);gap:2px}.lv-seg button{font:inherit;font-size:13px;border:0;background:none;color:var(--muted);padding:6px 12px;border-radius:8px;cursor:pointer}
+.lv-seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);font-weight:600}.lv-seg.sm button{font-size:12px;padding:4px 9px}
+.lv-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;margin-bottom:12px}
+.lv-t{padding:10px 12px;border-radius:10px;background:var(--sunk)}.lv-t b{display:block;font-size:20px;font-weight:700;line-height:1.1}.lv-t span{font-size:12px;color:var(--muted)}
+.lv-t.sale b,.lv-t.mint b{color:var(--leaf)}.lv-t.upx b{color:var(--daisy)}
+.lv-rows{display:grid;border-radius:10px;overflow:hidden;background:var(--sunk)}
+.lv-r{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n v" "c v";gap:2px 10px;padding:9px 12px;cursor:pointer;border-top:1px solid var(--line)}.lv-r:first-child{border-top:0}
+.lv-r:hover{background:rgba(255,255,255,.03)}.lv-r.new{background:rgba(var(--leaf-rgb),.10)}
+.lv-n{grid-area:n;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lv-c{grid-area:c;display:flex;flex-wrap:wrap;gap:4px}
+.lv-c em{font-style:normal;font-size:11.5px;padding:1px 7px;border-radius:7px;background:var(--raised);color:var(--muted)}
+.lv-c em.sale,.lv-c em.mint{background:var(--leaf-soft);color:var(--leaf)}.lv-c em.com{background:var(--daisy-soft);color:var(--daisy)}.lv-c em.list{background:var(--sky-soft);color:var(--sky)}
+.lv-c em.rare{color:#6fd6e8}.lv-c em.ultra{color:#c59bff}.lv-c em.lim{color:var(--leaf)}.lv-c em.plant{color:#d9a774}
+.lv-v{grid-area:v;text-align:right;font-weight:700;align-self:center}.lv-v small{font-weight:500;color:var(--muted)}.lv-v i{display:block;font-style:normal;font-size:11.5px;font-weight:500;color:var(--muted)}
+.lv-h{font-size:13px;color:var(--muted);font-weight:600;margin:14px 2px 6px}
+.lv-latest{display:grid;gap:2px}.lv-l{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12.5px;padding:3px 2px;cursor:pointer}
+.lv-l .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font:700 11px var(--mono);background:var(--raised)}.lv-l span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-l.sale .ic{background:var(--leaf);color:var(--leaf-ink)}.lv-l.mint .ic{background:var(--leaf-soft);color:var(--leaf)}.lv-l.list .ic{background:var(--sky-soft);color:var(--sky)}.lv-l.com .ic{background:var(--daisy-soft);color:var(--daisy)}.lv-l.new{background:rgba(var(--leaf-rgb),.10);border-radius:6px}
 .td-ev{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 4px;border-radius:8px;cursor:pointer;font-size:13px}
 .td-ev:hover{background:rgba(255,255,255,.03)}
 .td-ev b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1819,6 +1837,7 @@ details.more>summary .muted{font-weight:400;font-size:12.5px;margin-left:4px}
 .hold-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 12px;padding:8px 12px;border:1px dashed var(--leaf-line);border-radius:12px;font-size:13px;color:var(--muted)}
 .hold-line[hidden]{display:none}
 .hl-k{display:inline-flex;align-items:center;gap:6px;color:var(--leaf);font-weight:600}
+.hl-k.wait{color:var(--daisy)}.hl-wait{display:inline-flex;gap:6px;align-items:baseline;margin:2px 10px 2px 0}.hl-wait em{font-style:normal;color:var(--muted);font-size:12px}
 .hl-seed{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--line-2);background:var(--sunk);color:var(--ink);font:600 12.5px var(--body);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hl-seed b{font-family:var(--mono);color:var(--leaf)}
 .hl-rel{margin-left:auto;font-size:12.5px}
@@ -2348,6 +2367,7 @@ body.pub-view #nsRefresh{display:none}
       <label class="sw"><input type="checkbox" id="genAlert"><span><b>Mint cost at my target</b><em>Tell me when it drops to <input id="genTarget" class="set-inl" type="number" step="0.01" min="0" aria-label="Target mint cost (Sparklet per seed)"> Sparklet</em></span></label>
       <label class="sw"><input type="checkbox" id="genWorth"><span><b>Generating pays</b><em>Tell me when a mint at one of your nurseries is worth more than it costs</em></span></label>
       <div class="set-one set-pm"><span><b>Pricing</b><em>How Fill shop prices your seeds</em></span><span class="seg" id="setPmode" aria-label="Pricing"><button type="button" data-pm="top">Top price</button><button type="button" data-pm="bal">Balanced</button><button type="button" data-pm="fast">Sell fast</button></span></div>
+      <label class="sw"><input type="checkbox" id="waitSell"><span><b>Wait for a good moment</b><em>Rare and Ultra-rare seeds, and seeds selling slowly or falling, stay in your wallet until they're selling or the price is high</em></span></label>
     </section>
     <section class="panel set-sec owner-only" id="setDaily">
       <h2>On your phone</h2>
@@ -3460,7 +3480,7 @@ const SITE = (() => {
     const ms = e.s === "yes" && e.d ? Date.parse(e.d + "T00:00:00Z") : null;
     return {s: e.s, since: ms, recent: ms != null && Date.now() - ms < 21 * DAY && Date.now() >= ms}; }
   const NEW_DAYS = 10;
-  window.__afV74 = {plantOf, plantKey, seedWindows: (...a) => seedWindows(...a), isNewSeed: (...a) => isNewSeed(...a), rarityRank: k => rarityRank(k)};   // for tests
+  window.__afV74 = {plantOf, plantKey, seedWindows: (...a) => seedWindows(...a), isNewSeed: (...a) => isNewSeed(...a), rarityRank: k => rarityRank(k), sellGate: (...a) => sellGate(...a)};   // for tests
   function firstSeen(){
     const f = new Map(), from = market.from ? utc(market.from).getTime() : 0;
     for (const s of market.sales || []) { const k = lc(s.n), ms = utc(s.t).getTime(); if (!f.has(k) || ms < f.get(k)) f.set(k, ms); }
@@ -4506,12 +4526,13 @@ const SITE = (() => {
       : `<p class="td-none">Nothing needs you right now: your shops are stocked.</p>`;
     if ($("tdLines")._h !== html) { $("tdLines").innerHTML = html; $("tdLines")._h = html; }
   }
-  // the live feed: your newest sales, commission, mints, listings and plantings from your history (refreshed by every live
-  // check), the same seed and kind within 30 minutes on one line
-  const TDF = {top: 0};
+  // v75: the live panel, split in two. Selling: sales, commission and listings. Generating: seeds generated (with their
+  // rarity and what they're worth at List at), Sparklet spent, plantings. Each: a summary for the last 24 hours or 7 days,
+  // one row per seed, and the latest few events. Refreshed by every live check; a new row lights up.
+  const TDF = {top: 0, tab: store.get("af:lvTab", "sell"), win: store.get("af:lvWin", 1)};
   function renderTodayFeed(){
     const el = $("tdFeed"); if (!el || !S.data) return;
-    const h = S.data.hist, ev = [];
+    const h = S.data.hist, now = Date.now(), since = now - TDF.win * DAY, ev = [];
     const seedK = (n, hash, cat) => n && classify(n, hash, cat) === "seed" ? lc(n) : null;
     for (const s of h.sales) { const k = seedK(s.item, s.hash, s.cat); if (k) ev.push({kind: s.role === "own" ? "sale" : "com", k, ms: utc(s.ts).getTime(), upx: s.received || 0, who: s.role === "own" ? s.buyer : s.seller}); }
     for (const r of Object.values(h.items)) {
@@ -4521,22 +4542,49 @@ const SITE = (() => {
       if (r.plantTs) ev.push({kind: "plant", k, ms: utc(r.plantTs).getTime()});
     }
     ev.sort((a, b) => b.ms - a.ms);
-    const groups = [];
-    for (const e of ev) {
-      const g = groups.find(x => x.kind === e.kind && x.k === e.k && x.ms - e.ms <= 30 * 60e3);
-      if (g) { g.n++; g.upx += e.upx || 0; if (g.who !== e.who) g.who = null; continue; }
-      if (groups.length >= 8) { if (e.ms < groups[7].ms - 30 * 60e3) break; continue; }
-      groups.push({...e, n: 1, upx: e.upx || 0});
+    const prevTop = TDF.top; TDF.top = ev.length ? ev[0].ms : 0;
+    const sell = TDF.tab !== "gen", kinds = sell ? ["sale", "com", "list"] : ["mint", "plant"];
+    const inWin = ev.filter(e => e.ms >= since && kinds.includes(e.kind));
+    const when = ms => { const m = (now - ms) / 60e3; return m < 1 ? "now" : m < 60 ? `${Math.floor(m)}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"}); };
+    const by = new Map(); for (const e of inWin) { const g = by.get(e.k) || by.set(e.k, {k: e.k, sale: 0, com: 0, list: 0, mint: 0, plant: 0, upx: 0, saleUpx: 0, last: 0}).get(e.k); g[e.kind]++; g.upx += e.upx || 0; if (e.kind === "sale") g.saleUpx += e.upx || 0; g.last = Math.max(g.last, e.ms); }
+    const rows = [...by.values()], fresh = g => prevTop && g.last > prevTop ? " new" : "";
+    const tile = (v, l, cls) => `<div class="lv-t${cls ? " " + cls : ""}"><b class="num">${v}</b><span>${l}</span></div>`;
+    let sum = "", list = "";
+    if (sell) {
+      const sold = sum0(inWin, "sale"), com = sum0(inWin, "com"), listed = sum0(inWin, "list"), upx = inWin.reduce((t, e) => t + (e.upx || 0), 0);
+      sum = tile(int(sold), sold === 1 ? "seed sold" : "seeds sold", "sale") + tile(int(upx), "UPX earned", "upx") + tile(int(listed), "listed") + (com ? tile(int(com), "commission") : "");
+      rows.sort((a, b) => b.upx - a.upx || b.list - a.list);
+      list = rows.map(g => `<div class="lv-r${fresh(g)}" data-seed="${esc(g.k)}"><span class="lv-n">${esc(nice(g.k))}</span>
+        <span class="lv-c">${g.sale ? `<em class="sale">${int(g.sale)} sold</em>` : ""}${g.com ? `<em class="com">${int(g.com)} commission</em>` : ""}${g.list ? `<em class="list">${int(g.list)} listed</em>` : ""}</span>
+        <span class="lv-v num">${g.upx ? `${int(g.upx)}<small> UPX</small>` : ""}${g.sale ? `<i>${int(g.saleUpx / g.sale)} each</i>` : ""}</span></div>`).join("");
+    } else {
+      const gen = sum0(inWin, "mint"), planted = sum0(inWin, "plant");
+      const worth = rows.reduce((t, g) => t + g.mint * (listAtOf(g.k) || 0), 0);
+      const spk = ((h.spk && h.spk.list) || []).filter(r => r.ms >= since && r.k === "burn").reduce((t, r) => t + r.q, 0);
+      sum = tile(int(gen), gen === 1 ? "seed generated" : "seeds generated", "mint") + tile(worth ? int(worth) : "–", "UPX worth at List at", "upx") + (spk ? tile(spk2(spk), "Sparklet spent") : "") + (planted ? tile(int(planted), "planted") : "");
+      rows.sort((a, b) => b.mint - a.mint || b.plant - a.plant);
+      list = rows.map(g => { const rr = rarityRank(g.k), tag = rr >= 3 ? `<em class="ultra">Ultra-rare</em>` : rr === 2 ? `<em class="rare">Rare</em>` : rr === 1 ? `<em class="lim">Limited</em>` : "";
+        return `<div class="lv-r${fresh(g)}" data-seed="${esc(g.k)}"><span class="lv-n">${esc(nice(g.k))}</span>
+        <span class="lv-c">${g.mint ? `<em class="mint">${int(g.mint)} generated</em>` : ""}${g.plant ? `<em class="plant">${int(g.plant)} planted</em>` : ""}${tag}</span>
+        <span class="lv-v num">${g.mint && listAtOf(g.k) ? `${int(g.mint * listAtOf(g.k))}<small> UPX</small><i>${int(listAtOf(g.k))} each</i>` : ""}</span></div>`; }).join("");
     }
     const IC = {sale: "$", com: "%", mint: "✦", list: "↑", plant: "⌄"};
-    const ttl = g => { const x = g.n > 1 ? ` ×${g.n}` : ""; return g.kind === "sale" ? `Sold ${nice(g.k)}${x}` : g.kind === "com" ? `Commission · ${nice(g.k)}${x}` : g.kind === "mint" ? `Generated ${nice(g.k)}${x}` : g.kind === "list" ? `Listed ${nice(g.k)}${x}` : `Planted ${nice(g.k)}${x}`; };
-    const sub = g => g.kind === "sale" ? `${int(g.upx)} UPX${g.who ? " · " + nameOf(g.who) : ""}` : g.kind === "com" ? `+${int(g.upx)} UPX${g.who ? " · sold by " + nameOf(g.who) : ""}` : "";
-    const when = ms => { const m = (Date.now() - ms) / 60e3; return m < 1 ? "now" : m < 60 ? `${Math.floor(m)}m` : m < 1440 ? `${Math.floor(m / 60)}h` : new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"}); };
-    const prevTop = TDF.top; TDF.top = groups.length ? groups[0].ms : 0;
-    el.innerHTML = groups.length ? groups.map(g => `<div class="td-ev ${g.kind}${prevTop && g.ms > prevTop ? " new" : ""}" data-seed="${esc(g.k)}"><span class="ic">${IC[g.kind]}</span><div><b>${esc(ttl(g))}</b>${sub(g) ? `<span>${esc(sub(g))}</span>` : ""}</div><em title="${esc(new Date(g.ms).toLocaleString())}">${when(g.ms)}</em></div>`).join("")
-      : `<p class="td-none">Sales, mints and listings show up here as they happen.</p>`;
+    const latest = ev.filter(e => kinds.includes(e.kind)).slice(0, 5).map(e => `<div class="lv-l ${e.kind}${prevTop && e.ms > prevTop ? " new" : ""}" data-seed="${esc(e.k)}"><span class="ic">${IC[e.kind]}</span><span>${esc({sale: "Sold", com: "Commission", list: "Listed", mint: "Generated", plant: "Planted"}[e.kind])} ${esc(nice(e.k))}${e.upx ? ` for ${int(e.upx)} UPX` : ""}</span><span class="muted">${when(e.ms)}</span></div>`).join("");
+    const seg = (key, v, label, cur) => `<button type="button" data-lv${key}="${v}" aria-pressed="${String(cur === v)}">${label}</button>`;
+    el.innerHTML = `<div class="lv-bar"><div class="lv-seg">${seg("tab", "sell", "Selling", TDF.tab === "gen" ? "gen" : "sell")}${seg("tab", "gen", "Generating", TDF.tab === "gen" ? "gen" : "sell")}</div>
+        <div class="lv-seg sm">${seg("win", "1", "24 h", String(TDF.win))}${seg("win", "7", "7 days", String(TDF.win))}</div></div>
+      <div class="lv-sum">${sum}</div>
+      ${rows.length ? `<div class="lv-rows">${list}</div>` : `<p class="td-none">${sell ? "No sales or listings" : "Nothing generated"} in the last ${TDF.win === 1 ? "24 hours" : "7 days"}.</p>`}
+      ${latest ? `<h3 class="lv-h">Latest</h3><div class="lv-latest">${latest}</div>` : ""}`;
     $("tdFeedSt").textContent = PV ? "" : LIVE.on ? "checks every 20 s" : "paused";
   }
+  const sum0 = (L, kind) => L.filter(e => e.kind === kind).length;
+  document.addEventListener("click", e => {
+    const t = e.target.closest && e.target.closest("[data-lvtab],[data-lvwin]"); if (!t) return;
+    if (t.dataset.lvtab) { TDF.tab = t.dataset.lvtab; store.set("af:lvTab", TDF.tab); }
+    if (t.dataset.lvwin) { TDF.win = +t.dataset.lvwin; store.set("af:lvWin", TDF.win); }
+    renderTodayFeed();
+  });
   // a live pop-up isn't needed while the Today feed is on screen: the row there lights up instead
   const todayFeedInView = () => { if (!onView("today")) return false; const el = $("tdFeed"); if (!el || !el.offsetParent) return false; const r = el.getBoundingClientRect(); return r.bottom > 60 && r.top < innerHeight - 40; };
 
@@ -4801,7 +4849,8 @@ const SITE = (() => {
     return {v: 1, account: o.account, user: o.user, view: o.view,
       shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
       fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0),
-      comp: o.comp || {}, floor: o.floor || 0, scan: o.scan || [], meta: o.meta ? o.meta(Object.keys(prices)) : {}};
+      comp: o.comp || {}, floor: o.floor || 0, scan: o.scan || [], meta: o.meta ? o.meta(Object.keys(prices)) : {},
+      wait: (R.wait || []).map(x => ({k: x.k, name: o.nice(x.k), up: up[x.k] || "", n: x.wait.n, why: x.wait.why, aim: x.wait.aim || null}))};
   }
   // v74: per seed, for the extension's live check: the typical range (lo = bottom of it, hi = the ceiling), new release,
   // plantable, rarity rank. And every open nursery on Upland with its city (for the broad ask scan).
@@ -4879,7 +4928,9 @@ const SITE = (() => {
       const kept = Math.min(p.toList, HD.get(k) || 0); keptN += kept;
       plan.push({k, p, m, ms, r, yours, mr, price, profit, W, cap, add: 0, held: p.toList - kept, kept, inShop: p.inShop, own14: own14.get(k) || 0});
     }
-    for (const x of plan) if (x.price && x.held > 0) x.add = Math.max(0, Math.min(x.held, x.cap - x.inShop));
+    // v75: sell timing. Rare / Ultra-rare seeds, and seeds selling slowly or falling, wait in your wallet for a good moment
+    for (const x of plan) { x.gate = sellGate(x.k, x.m, x.price); if (x.gate && !x.gate.go) x.wait = {...x.gate, n: x.held}; }
+    for (const x of plan) if (x.price && x.held > 0 && !x.wait) x.add = Math.max(0, Math.min(x.held, x.cap - x.inShop));
     const press = new Map();
     for (const x of plan) {
       x.press = (x.inShop + x.add) / Math.max(.5, x.r * days);
@@ -4904,7 +4955,28 @@ const SITE = (() => {
     }
     out.sort((a, b) => b.r * (b.price || 0) - a.r * (a.price || 0));
     const notAdded = plan.filter(x => x.held > x.add).sort((a, b) => (b.held - b.add) - (a.held - a.add));
-    return {queue, out, notAdded, cost, share, days, capShare, inShopAll, plan, press, mode, hold: HD, keptN};
+    const wait = plan.filter(x => x.wait && x.wait.n > 0).sort((a, b) => b.wait.n * (b.price || 0) - a.wait.n * (a.price || 0));
+    return {queue, out, notAdded, cost, share, days, capShare, inShopAll, plan, press, mode, hold: HD, keptN, wait};
+  }
+  // v75: is now a good moment to sell k? Only asked for Rare / Ultra-rare seeds and for seeds selling slowly or falling.
+  // Good: Hot demand, a surge, rising 5%+, at least 2 sold in the last 24h (3 for others), or the price is at the high end
+  // of recent sales (75th percentile). Otherwise they wait, aiming for that high end. "Sell anyway" lifts it for 3 days.
+  const WAITSET = {skip: store.get("af:waitSkip", {})};
+  function sellGate(k, m, price){
+    if (!store.get("af:waitSell", true) || !price) return null;
+    const rr = rarityRank(k), slow = !!(m && m.tier === "Slow"), falling = !!(m && m.trend != null && m.trend < -.08);
+    if (rr < 2 && !slow && !falling) return null;
+    if (WAITSET.skip[k] && Date.now() - WAITSET.skip[k] < 3 * DAY) return {go: true, why: "you chose to sell anyway"};
+    const good = [], c24 = m ? m.c24 || 0 : 0;
+    if (m && m.tier === "Hot") good.push("Hot demand");
+    if (m && m.surge) good.push(`surge ${m.surge.toFixed(1)}×`);
+    if (m && m.trend > .05) good.push(`rising ${Math.round(m.trend * 100)}%`);
+    if (c24 >= (rr >= 2 ? 2 : 3)) good.push(`${c24} sold in 24 h`);
+    if (m && m.p75 && price >= m.p75 * .97) good.push("price at the high end");
+    if (good.length) return {go: true, why: good.join(", ")};
+    const aim = m && m.p75 ? Math.max(price, roundNice(m.p75)) : price;
+    return {go: false, aim, rr, why: [rr >= 3 ? "Ultra-rare" : rr === 2 ? "Rare" : "", slow ? "selling slowly" : "", falling ? `price falling ${Math.round(-m.trend * 100)}%` : "",
+      c24 ? `only ${c24} sold in 24 h` : "none sold in 24 h"].filter(Boolean).join(", ")};
   }
   // ---------- Fill shop list (v59): one list per nursery, in the exact order to put seeds in ----------
   // Each row is a run of the same seed: "Lavender ×3" then "Oil Palm ×1" then "Lavender ×1" when that's the order the slots go.
@@ -5195,8 +5267,14 @@ const SITE = (() => {
   function holdLines(R){
     const H = PV ? new Map() : (R && R.hold) || plantHold(), L = [...H.entries()].sort((a, b) => b[1] - a[1]);
     const html = L.length ? `<span class="hl-k">${SPROUT}Kept to plant:</span> ${L.map(([k, n]) => `<button type="button" class="hl-seed" data-hold="${esc(k)}" title="Change or release">${esc(nice(k))} <b>×${int(n)}</b></button>`).join("")}<button type="button" class="linkbtn hl-rel" data-unhold="*">release all</button>` : "";
-    for (const el of document.querySelectorAll("[data-holdline]")) { if (el._fh !== html) { el.innerHTML = html; el._fh = html; } el.hidden = !html; }
+    const W = PV ? [] : ((R && R.wait) || []);
+    const wh = W.length ? `<span class="hl-k wait">⏳ Waiting for a good moment to sell:</span> ${W.map(x => `<span class="hl-wait" title="${esc(x.wait.why)}">${esc(nice(x.k))} <b>×${int(x.wait.n)}</b> <em>${esc(x.wait.why)}${x.wait.aim ? `, aim ${int(x.wait.aim)} UPX` : ""}</em><button type="button" class="linkbtn" data-waitskip="${esc(x.k)}">Sell anyway</button></span>`).join("")}` : "";
+    const all = [html, wh].filter(Boolean).join("<br>");
+    for (const el of document.querySelectorAll("[data-holdline]")) { if (el._fh !== all) { el.innerHTML = all; el._fh = all; } el.hidden = !all; }
   }
+  document.addEventListener("change", e => { if (e.target && e.target.id === "waitSell") { store.set("af:waitSell", e.target.checked); render(); } });
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-waitskip]"); if (!b) return; e.preventDefault();
+    WAITSET.skip[b.dataset.waitskip] = Date.now(); store.set("af:waitSkip", WAITSET.skip); render(); });
   // the Keep to plant line inside a seed's sheet (Seed Dex, Shelves, Market… anywhere a seed opens), when it's in your wallet
   function holdSheetHTML(k){
     if (PV || !S.data) return "";
@@ -8132,6 +8210,7 @@ const SITE = (() => {
     for (const k of ["mintOn", "rareOn", "pushMint", "liveSound", "saleSnd", "pushSale", "pushCom", "genAlert", "genTarget", "genWorth", "summaryOn", "summaryHour"]) c(k, PREF[k]);
     c("liveOn", LIVE.on);   // this device only
     document.querySelectorAll("#setPmode button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pm === store.get("af:pmode", "bal"))));
+    if ($("waitSell")) $("waitSell").checked = store.get("af:waitSell", true);
     $("setDaily").hidden = !hasHelper(); $("summaryHour").disabled = !PREF.summaryOn;
     $("mintSub").classList.toggle("off", !PREF.mintOn); $("saleSnd").disabled = !PREF.liveSound; $("genTarget").disabled = !PREF.genAlert;
     $("setSub").textContent = hasHelper() ? "Changes save as soon as you make them, on every device where you're the owner." : "Changes save as soon as you make them.";
