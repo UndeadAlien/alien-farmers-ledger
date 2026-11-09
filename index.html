@@ -4753,14 +4753,24 @@ const SITE = (() => {
       for: [...(p.for instanceof Map ? p.for.keys() : Object.keys(p.for || {}))].map(o.nice)}));
     return {v: 1, account: o.account, user: o.user, view: o.view,
       shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
-      fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0)};
+      fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0),
+      comp: o.comp || {}, floor: o.floor || 0};
+  }
+  // v73: for the game extension's live price check: each of your nurseries → the other open nurseries in its city
+  // (most stocked first, up to 40), and the cost floor (never list below it)
+  function planComp(){
+    const out = {}; let L = []; try { L = dirShops() || []; } catch { return out; }
+    const mine = L.filter(s => s.mine);
+    for (const m of mine) { if (!m.city) continue;
+      out[m.id] = L.filter(s => !s.mine && s.active && s.city === m.city).sort((a, b) => (b.used || 0) - (a.used || 0)).slice(0, 40).map(s => +s.id); }
+    return out;
   }
   const XB = {sig: "", plan: null, t: 0};
   function planNow(){
     const R = lastD && lastD.plan, h = S.data && S.data.hist; if (!h || !R || !R.groups) return null;
     if (!h.to || !Object.keys(h.items || {}).length) return null;   // the chain hasn't loaded: an empty plan would wipe the game panel's last good one
     return planPack(R, shelfSource(), {price: k => { const lp = fillPrice({k, price: listAtOf(k)}); return lp && lp.p; }, nice, label: shopLabel,
-      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner"});
+      account: S.data.account, user: lc(nameOf(S.data.account)), view: PV ? "visitor" : "owner", comp: planComp(), floor: costFloor(lastD.ctx)});
   }
   function planPost(force){
     let plan = null; try { plan = planNow(); } catch (e) { console.warn("extension plan", e); }
