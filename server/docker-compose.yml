@@ -1,0 +1,37 @@
+# Alien Farmers on your home server. Lives in /opt/alienfarmers; setup.sh writes .env (owner code, browser password,
+# Tailscale address). Ports are bound to your Tailscale address only: nothing is reachable from the internet or Wi-Fi guests.
+name: alienfarmers
+services:
+  # The always-on game computer: Chromium with the Upland game tab and the Game Helper, which you open from any of your
+  # devices at https://<tailscale address>:3001. You log in to Upland here yourself; the login stays in ./browser-config.
+  upland-browser:
+    image: lscr.io/linuxserver/chromium:latest
+    restart: unless-stopped
+    shm_size: "2gb"
+    security_opt: ["seccomp:unconfined"]
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - CUSTOM_USER=alien
+      - PASSWORD=${BROWSER_PASSWORD}
+      - CHROME_CLI=--load-extension=/ext/game-helper https://play.upland.me/
+    volumes:
+      - ./browser-config:/config
+      - ./extension:/ext/game-helper:ro
+    ports:
+      - "${TS_IP}:3001:3001"
+  # The Farm brain runner: opens your Ledger headless every 10 minutes and sends the snapshot to Cloudflare.
+  farm-brain-runner:
+    build: ./brain-runner
+    restart: unless-stopped
+    shm_size: "1gb"
+    environment:
+      - AF_OWNER_KEY=${AF_OWNER_KEY}
+      - HOST_NAME=home server
+      - EVERY_MIN=10
+      - TZ=America/New_York
+    volumes:
+      - ledger-profile:/data
+volumes:
+  ledger-profile:
