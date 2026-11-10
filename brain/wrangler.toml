@@ -16,7 +16,7 @@ binding = "BROWSER"
 # Cloudflare dashboard → Storage & Databases → KV → copy the ID of the namespace bound to af-alerts as AF, paste it below.
 [[kv_namespaces]]
 binding = "AF"
-id = "PASTE_YOUR_AF_KV_NAMESPACE_ID_HERE"
+id = "24d19fddc9ce49e5a1061dfb5032f8f1"
 
 [limits]
 cpu_ms = 60000
