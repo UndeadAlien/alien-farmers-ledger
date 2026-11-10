@@ -29,8 +29,8 @@ What you'll need: your PC, your phone, and access to the server (a keyboard and 
 
   `wrangler login` opens your browser once. Click **Allow**.
 - [ ] **A6.** Open https://af-brain.alienfarmers.workers.dev/status. It should show `"app":"af-brain"`.
-- [ ] **A7.** In your Ledger: **Settings → Copy owner link**. Keep it handy in your password manager. You'll paste it twice
-      in Part B. Never post it in a chat.
+- [ ] **A7.** In your Ledger: **Settings → Copy owner link**. Keep it handy in your password manager. You'll paste it in B6 and C4
+      (and D2 if needed). Never post it in a chat.
 - [ ] **A8.** From this chat, download **alien-farmers-game-helper-v0.18.1.zip** to your PC.
 
 ## Part B: the server (25 min)
@@ -73,7 +73,7 @@ What you'll need: your PC, your phone, and access to the server (a keyboard and 
       Then close that tab. This hands the Game Helper your owner code.
 - [ ] **C5.** Back on the game tab, check for the Alien Farmers button on the side of the screen. Open it and look at the bottom line:
   - It should say **Connected to the game**.
-  - Under Restock, it should say **Plan from … (Farm brain)**. The first plan can take up to 10 minutes.
+  - It should say **Plan from … ago**. Hover over it to see "From the Farm brain". The first plan can take up to 10 minutes.
   - If the button isn't there:
     1. Go to `chrome://extensions` in that remote Chromium.
     2. Turn on Developer mode.
