@@ -1,0 +1,22 @@
+# Alien Farmers · Farm brain (second Cloudflare Worker). Deploy from this folder: npm install, then npx wrangler deploy.
+name = "af-brain"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Every 10 minutes it opens your Ledger headless and saves one fresh snapshot.
+[triggers]
+crons = ["*/10 * * * *"]
+
+# A headless browser (Cloudflare Browser Run, Workers Paid plan).
+[browser]
+binding = "BROWSER"
+
+# The SAME KV namespace your phone-alerts helper (af-alerts) uses, so the brain knows your owner code.
+# Cloudflare dashboard → Storage & Databases → KV → copy the ID of the namespace bound to af-alerts as AF, paste it below.
+[[kv_namespaces]]
+binding = "AF"
+id = "PASTE_YOUR_AF_KV_NAMESPACE_ID_HERE"
+
+[limits]
+cpu_ms = 60000

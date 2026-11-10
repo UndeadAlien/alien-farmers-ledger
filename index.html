@@ -322,6 +322,10 @@ svg text{fill:var(--muted);font:11px var(--mono)}
 .sess-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid rgba(246,181,82,.5);background:var(--daisy-soft);border-radius:12px;font-size:13.5px}
 .sess-bar span{flex:1;min-width:220px}.sess-bar b{color:var(--daisy)}
 .sess-bar.end{border-color:rgba(255,112,112,.55);background:rgba(255,112,112,.1)}.sess-bar.end b{color:var(--bad)}
+.run-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);background:var(--raised);border-radius:12px;font-size:14px}
+.run-bar span{flex:1;min-width:220px}
+.run-bar.on{border-color:rgba(94,227,143,.5)}
+.run-bar b{color:var(--good)}
 /* Nurseries v60: the generate verdict pill (mint cost sheet) */
 .gw-net{display:inline-block;min-width:64px;text-align:center;font:700 13px var(--mono);padding:3px 8px;border-radius:999px}
 .gw-net.pos{background:var(--leaf-soft);color:var(--good);border:1px solid var(--leaf-line)}.gw-net.neg{background:rgba(255,112,112,.1);color:var(--bad);border:1px solid rgba(255,112,112,.35)}
@@ -2036,6 +2040,7 @@ body.pub-view #nsRefresh{display:none}
   <div class="wrap">
     <div class="pub-bar" id="pubBar" hidden></div>
     <div class="sess-bar" id="helperBar" hidden></div>
+    <div class="run-bar" id="runBar" hidden></div>
     <header class="top">
       <div class="tb-title"><span id="pageEyebrow" hidden></span><h1 id="pageTitle">Overview</h1><span class="page-desc" id="pageDesc"></span></div>
       <div class="tb-right">
@@ -4895,6 +4900,100 @@ const SITE = (() => {
     planPost(true);
   });
   window.__afPlan = {pack: planPack, now: () => planNow()};   // for tests
+  // ---------- v76: the Farm brain ----------
+  // The Farm brain (af-brain, a second Cloudflare Worker) opens this page in a headless browser every few minutes as
+  // ?brain=1 with the owner link. It reads the chain and the real shelves like any owner device (starting from the public
+  // copy, so it only reads what's new), publishes a fresh public copy, and hands back one snapshot: the game extension's
+  // plan plus the Home numbers. Every app (this page, your phone, the extension) reads that snapshot from GET /snap, so
+  // they all show the same thing with your computer off. "Restock all" asks the brain for a run; the extension in your
+  // game tab does the listing, one seed at a time, and reports back.
+  const BRAIN_URL = "https://af-brain.alienfarmers.workers.dev";
+  const BRAIN = /[?&]brain=1(&|$)/.test(location.search);
+  function brainHome(plan){
+    const h = S.data.hist, now = Date.now(), d1 = now - DAY;
+    let soldN = 0, soldUpx = 0, comN = 0, comUpx = 0; const sold = [];
+    for (const s of h.sales || []) {
+      const ms = utc(s.ts).getTime(); if (!(ms >= d1) || classify(s.item, s.hash, s.cat) !== "seed") continue;
+      if (s.role === "own") { soldN++; soldUpx += +s.received || 0; sold.push({k: lc(s.item), name: nice(lc(s.item)), upx: Math.round(+s.received || 0), ms}); }
+      else if (s.role === "com" || s.role === "commission") { comN++; comUpx += +s.received || 0; }
+    }
+    sold.sort((a, b) => b.ms - a.ms);
+    const gen = new Map(); let genN = 0;
+    for (const r of Object.values(h.items || {})) if (r.name && r.mintMs >= d1 && classify(r.name, r.hash, r.cat) === "seed") { genN++; const k = lc(r.name); gen.set(k, (gen.get(k) || 0) + 1); }
+    const genTop = [...gen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => ({k, name: nice(k), n}));
+    const src = new Map(shelfSource().map(s => [+s.id, s]));
+    const shops = plan.shops.filter(s => s.active).map(s => {
+      const sh = src.get(+s.id), items = (sh && sh.items) || [];
+      const fix = items.filter(x => { if (!x.me) return false; if (x.cur && x.cur !== "UPX") return true; const L = plan.prices[x.k]; return !!(L && x.p && (x.p < .8 * L || x.p > 1.3 * L)); }).length;
+      const g = plan.fill.find(f => f.sid === +s.id), add = g ? g.steps.reduce((t, st) => t + st.n, 0) : 0;
+      return {id: +s.id, name: s.name, city: s.city, cap: s.cap, used: s.used, free: Math.max(0, (s.cap || 0) - (s.used || 0)), fix, add, real: s.known === "helper"};
+    });
+    const need = shops.filter(s => s.fix || s.add), plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+    const say = !shops.length ? "No open nurseries yet."
+      : !need.length ? "Every nursery is set."
+      : need.length === shops.length ? `${plural(need.length, "nursery needs", "nurseries need")} you.`
+      : `${plural(need.length, "nursery needs", "nurseries need")} you. The other ${shops.length - need.length === 1 ? "one is" : shops.length - need.length + " are"} selling.`;
+    return {say, sold: {n: soldN, upx: Math.round(soldUpx), com: comN, comUpx: Math.round(comUpx), latest: sold.slice(0, 6)}, gen: {n: genN, top: genTop},
+      shelves: {used: shops.reduce((t, s) => t + (s.used || 0), 0), cap: shops.reduce((t, s) => t + (s.cap || 0), 0)}, shops,
+      fix: shops.reduce((t, s) => t + s.fix, 0), add: shops.reduce((t, s) => t + s.add, 0),
+      waiting: (plan.wait || []).slice(0, 6).map(w => ({k: w.k, name: w.name, n: w.n, why: w.why}))};
+  }
+  function brainSnap(){
+    const plan = planNow(); if (!plan) return null;
+    return {app: "af-snap", v: 1, at: Date.now(), account: plan.account, user: plan.user, plan, home: brainHome(plan)};
+  }
+  if (BRAIN) {
+    window.__afBrain = {state: "loading", at: Date.now()};
+    (async () => {
+      const t0 = Date.now(), until = (f, ms) => (async () => { while (!f()) { if (Date.now() - t0 > ms) throw new Error("timed out"); await sleep(400); } })();
+      try {
+        if (PV) throw new Error("not the owner: the owner link didn't match the helper");
+        await until(() => lastLoadAt > 0 && !$("refresh").disabled, 240e3); window.__afBrain.state = "shelves";
+        await shelfReal(true); await until(() => !SH.realBusy, 60e3);
+        render(); await sleep(300);
+        const snap = brainSnap(); if (!snap) throw new Error("no plan yet");
+        window.__afBrain.state = "publishing"; try { await sitePublish(true); } catch {}
+        window.__afBrain = {state: "done", at: Date.now(), ms: Date.now() - t0, snap};
+      } catch (e) { window.__afBrain = {state: "error", at: Date.now(), error: String(e && e.message || e)}; }
+    })();
+  }
+  window.__afBrainSnap = brainSnap;   // for tests
+  // ---- v76: Restock all (owner): the bar at the top while a run is waiting or going ----
+  const RUN = {r: null, t: 0, busy: false, err: ""};
+  const brainCall = async (path, body) => { const r = await fetch(BRAIN_URL + path, body ? {method: "POST", headers: {"Content-Type": "application/json", "x-af-key": (PH.h && PH.h.key) || ""}, body: JSON.stringify(body)} : {cache: "no-store"});
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Farm brain answered " + r.status); return j; };
+  const runLive = r => !!(r && /^(queued|running|stopping)$/.test(r.state));
+  async function runPoll(){
+    if (PV || BRAIN || !hasHelper()) return;
+    try { RUN.r = (await brainCall("/run")).run || null; RUN.err = ""; RUN.down = false; } catch (e) { RUN.err = String(e.message || e); RUN.down = e instanceof TypeError; }   // not deployed yet: no bar
+    renderRunBar(); clearTimeout(RUN.t); RUN.t = setTimeout(runPoll, runLive(RUN.r) ? 5e3 : 60e3);
+  }
+  function renderRunBar(){
+    const el = $("runBar"); if (!el) return;
+    const r = RUN.r, D = lastD, add = D && D.plan && D.plan.groups ? D.plan.groups.reduce((t, g) => t + g.steps.reduce((u, x) => u + x.n, 0), 0) : 0;
+    if (PV || BRAIN || !hasHelper() || RUN.down) { el.hidden = true; return; }
+    if (runLive(r)) {
+      const p = r.progress || {}, where = p.shop ? ` · ${esc(p.shop)}` : "", n = p.of ? ` · ${int(p.done || 0)} of ${int(p.of)}` : "";
+      const txt = r.state === "queued" ? (Date.now() - r.at > 120e3 ? "Waiting for your game tab. Open play.upland.me on the computer with the Game Helper." : "Starting… your game tab picks this up within a few seconds.")
+        : r.state === "stopping" ? "Stopping after the seed it's on…" : `Restocking${where}${n}${p.line ? ` · ${esc(p.line)}` : ""}`;
+      el.className = "run-bar on"; el.hidden = false;
+      el.innerHTML = `<span><b>Restock all</b> ${txt}</span>${r.state !== "stopping" ? `<button class="ghost" type="button" data-run="stop">Stop</button>` : ""}`;
+      return;
+    }
+    const last = r && r.state === "done" && Date.now() - (r.end || 0) < 30 * 60e3 ? r : null;
+    if (!add && !last) { el.hidden = true; return; }
+    el.className = "run-bar"; el.hidden = false;
+    el.innerHTML = `<span>${last ? `Last run ${esc(agoText(last.end))}: ${esc((last.progress && last.progress.line) || "done")}.` : `${int(add)} seed${add === 1 ? "" : "s"} to list across your nurseries.`}${RUN.err ? ` <span class="warn">${esc(RUN.err)}</span>` : ""}</span>`
+      + (add ? `<button class="primary" type="button" data-run="go"${RUN.busy ? " disabled" : ""}>Restock all</button>` : "");
+  }
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-run]"); if (!b) return;
+    RUN.busy = true; renderRunBar();
+    try { RUN.r = (await brainCall(b.dataset.run === "stop" ? "/run/stop" : "/run", b.dataset.run === "stop" ? {} : {scope: "all"})).run || RUN.r; RUN.err = ""; }
+    catch (err) { RUN.err = String(err.message || err); }
+    RUN.busy = false; renderRunBar(); clearTimeout(RUN.t); RUN.t = setTimeout(runPoll, 3e3);
+  });
+  setTimeout(runPoll, 3000); setInterval(renderRunBar, 15e3);
   function restockPlan(D){
     const now = Date.now(), d14 = now - 14 * DAY, d7 = now - 7 * DAY, h = S.data.hist;
     const seedSel = k => !S.seeds.size || S.seeds.has(k);
@@ -7985,7 +8084,8 @@ const SITE = (() => {
   const SITE_KEYS = ["af:market", "af:names", "af:seedNames", "af:hashKind", "af:snap", "af:nurseries", "af:shopSnap", "af:gen", "af:rec", "af:props", "af:lots", "af:bal", "af:lotShot", "af:lotMap",
     "af:tags", "af:usd", "af:spkUsd", "af:genShared", "af:coverDays", "af:rareUpx", "af:rareGold", "af:catNames", "af:myShops", "af:nursSeen", "af:shelfOf", "af:shelfSince", "af:fillPend"];
   SITE_KEYS.push("af:plant", "af:comp");   // v63:competitors: planting and new nurseries, read from the chain on an owner device
-  SITE_KEYS.push("af:priceLock");   // v66:pricing: the held prices, so the phone and visitors show the same List at
+  SITE_KEYS.push("af:priceLock");
+  SITE_KEYS.push("af:plantable", "af:waitSkip", "af:waitSell", "af:pmode", "af:plantHold");   // v76: your price and sell settings, so the Farm brain plans like your own devices   // v66:pricing: the held prices, so the phone and visitors show the same List at
   const PUBS = {t: 0, last: store.get("af:pubLast", null), busy: false, err: ""};
   const pubOn = () => true;
   const hexOf = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
