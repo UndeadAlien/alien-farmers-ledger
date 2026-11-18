@@ -4854,6 +4854,8 @@ const SITE = (() => {
     return {v: 1, account: o.account, user: o.user, view: o.view,
       shops: shops.map(s => ({id: +s.id, name: o.label(s), city: s.city || "", cap: s.cap, active: s.active !== false, used: (s.items || []).length, known: s.known || ""})),
       fill, pulls, prices, keys, add: fill.reduce((t, g) => t + g.steps.reduce((u, st) => u + st.n, 0), 0),
+      // v77: every seed in your wallet (key → count), for the extension's "List a seed" (Upland's wallet search needs 3+ letters)
+      held: (() => { const out = {}, D = lastD; if (D && D.rows) for (const p of D.rows.values()) if (p.k && p.held > 0) out[p.k] = p.held; return out; })(),
       comp: o.comp || {}, floor: o.floor || 0, scan: o.scan || [], meta: o.meta ? o.meta(Object.keys(prices)) : {},
       wait: (R.wait || []).map(x => ({k: x.k, name: o.nice(x.k), up: up[x.k] || "", n: x.wait.n, why: x.wait.why, aim: x.wait.aim || null}))};
   }
